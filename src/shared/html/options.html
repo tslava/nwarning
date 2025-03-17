@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Environment Warning Settings</title>
+  <link rel="stylesheet" href="../css/options.css">
+</head>
+<body>
+  <div class="container">
+    <h2>Environment Warning Settings</h2>
+    <div id="status" class="status"></div>
+
+    <div class="banner-settings">
+      <h3>Banner Settings</h3>
+      <div class="size-settings">
+        <div class="size-option">
+          <label for="prodSize">Production Banner Size:</label>
+          <select id="prodSize">
+            <option value="50">50px</option>
+            <option value="100">100px</option>
+            <option value="150">150px</option>
+          </select>
+        </div>
+        <div class="size-option">
+          <label for="devSize">Development Banner Size:</label>
+          <select id="devSize">
+            <option value="50">50px</option>
+            <option value="100">100px</option>
+            <option value="150">150px</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="url-pairs">
+      <h3>Environment URL Pairs</h3>
+      <div class="url-pairs-header">
+        <div class="url-field-header">Production URL</div>
+        <div class="url-field-header">Development URL</div>
+      </div>
+      <div id="urlPairsContainer"></div>
+      <button id="addPairButton" class="add-pair">Add URL Pair</button>
+    </div>
+
+    <div class="actions">
+      <button id="saveButton" class="primary-button">Save Settings</button>
+    </div>
+  </div>
+  <script src="../js/options.js"></script>
+</body>
+</html> 

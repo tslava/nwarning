@@ -1,0 +1,47 @@
+#environment-banner-wrapper {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  z-index: 2147483647 !important;
+  pointer-events: none !important;
+}
+
+#environment-banner {
+  width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 20px !important;
+  font-family: Arial, sans-serif !important;
+  color: white !important;
+  box-sizing: border-box !important;
+  font-size: 16px !important;
+  line-height: 1 !important;
+  font-weight: bold !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+  pointer-events: auto !important;
+}
+
+#environment-banner button {
+  padding: 4px 12px !important;
+  border: 2px solid white !important;
+  border-radius: 4px !important;
+  background-color: transparent !important;
+  color: white !important;
+  cursor: pointer !important;
+  font-size: 14px !important;
+  font-weight: bold !important;
+  transition: all 0.2s ease !important;
+}
+
+/* Style for production environment button hover */
+#environment-banner[style*="ff4444"] button:hover {
+  background-color: rgba(255, 68, 68, 0.2) !important;
+}
+
+/* Style for development environment button hover */
+#environment-banner[style*="17b417"] button:hover {
+  background-color: rgba(23, 180, 23, 0.2) !important;
+} 
