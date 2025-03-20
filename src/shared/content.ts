@@ -1,5 +1,11 @@
 import { platform } from './platform';
 
+interface Warning {
+    key: string;
+    value: string;
+    isWarning: boolean;
+}
+
 class EnvironmentBanner {
     private banner: HTMLElement | null = null;
     private wrapper: HTMLElement | null = null;
@@ -7,10 +13,13 @@ class EnvironmentBanner {
     private bannerSize: number = 50;
     private extensionEnabled: boolean = true;
     private styleElement: HTMLStyleElement | null = null;
+    private warningContent: HTMLElement | null = null;
 
     constructor() {
         this.setupMessageListener();
         this.loadStateAndCheckEnvironment();
+        this.checkLocalStorageVariables();
+        this.setupStorageListener();
     }
 
     private async loadStateAndCheckEnvironment(): Promise<void> {
@@ -34,6 +43,55 @@ class EnvironmentBanner {
             this.bannerSize = this.isProduction ? (data.prodSize || 50) : (data.devSize || 50);
             this.createBanner();
         }
+    }
+
+    private async checkLocalStorageVariables(): Promise<void> {
+        const data = await platform.storage.get(['localStorageKeys']);
+        const keys = data.localStorageKeys || [];
+        const warnings: Warning[] = [];
+
+        keys.forEach((key: string) => {
+            const value = localStorage.getItem(key);
+            if (value !== null) {
+                warnings.push({
+                    key,
+                    value,
+                    isWarning: value === '1' || value === 'true'
+                });
+            }
+        });
+
+        if (warnings.length > 0) {
+            this.displayWarnings(warnings);
+        }
+    }
+
+    private displayWarnings(warnings: Warning[]): void {
+        if (!this.banner) return;
+
+        const warningText = warnings.map(w => {
+            const brightness = w.isWarning ? 'bright' : 'dim';
+            return `<span class="${brightness}">${w.key} = ${w.value}</span>`;
+        }).join(' | ');
+
+        if (!this.warningContent) {
+            this.warningContent = document.createElement('div');
+            this.warningContent.className = 'warning-content';
+            this.banner.appendChild(this.warningContent);
+        }
+
+        this.warningContent.innerHTML = `
+            <span class="warning-icon">⚠️</span>
+            <span class="warning-text">${warningText}</span>
+        `;
+    }
+
+    private setupStorageListener(): void {
+        window.addEventListener('storage', (e: StorageEvent) => {
+            if (e.storageArea === localStorage) {
+                this.checkLocalStorageVariables();
+            }
+        });
     }
 
     private createBanner(): void {
@@ -127,6 +185,7 @@ class EnvironmentBanner {
             this.wrapper.remove();
             this.wrapper = null;
             this.banner = null;
+            this.warningContent = null;
         }
         if (this.styleElement) {
             this.styleElement.remove();

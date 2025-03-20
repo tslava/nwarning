@@ -6,6 +6,7 @@ class OptionsManager {
   private status: HTMLElement;
   private prodSizeSelect: HTMLSelectElement;
   private devSizeSelect: HTMLSelectElement;
+  private localStorageKeysContainer: HTMLElement;
 
   constructor() {
     this.urlPairsContainer = document.getElementById('urlPairsContainer') as HTMLElement;
@@ -13,16 +14,24 @@ class OptionsManager {
     this.status = document.getElementById('status') as HTMLElement;
     this.prodSizeSelect = document.getElementById('prodSize') as HTMLSelectElement;
     this.devSizeSelect = document.getElementById('devSize') as HTMLSelectElement;
+    this.localStorageKeysContainer = document.getElementById('localStorageKeysContainer') as HTMLElement;
     
     this.loadSettings();
     this.setupEventListeners();
   }
 
   private async loadSettings(): Promise<void> {
-    const data = await platform.storage.get(['productionSites', 'developmentSites', 'prodSize', 'devSize']);
+    const data = await platform.storage.get([
+      'productionSites',
+      'developmentSites',
+      'prodSize',
+      'devSize',
+      'localStorageKeys'
+    ]);
     
     const productionSites = data.productionSites || [];
     const developmentSites = data.developmentSites || [];
+    const localStorageKeys = data.localStorageKeys || [];
     
     // Load banner sizes
     this.prodSizeSelect.value = data.prodSize?.toString() || '50';
@@ -35,6 +44,12 @@ class OptionsManager {
     for (let i = 0; i < maxPairs; i++) {
       this.addUrlPair(productionSites[i] || '', developmentSites[i] || '');
     }
+
+    // Load localStorage keys
+    this.localStorageKeysContainer.innerHTML = '';
+    localStorageKeys.forEach((key: string) => {
+      this.addLocalStorageKey(key);
+    });
   }
 
   private addUrlPair(prodUrl: string = '', devUrl: string = ''): void {
@@ -63,9 +78,33 @@ class OptionsManager {
     this.urlPairsContainer.appendChild(pairDiv);
   }
 
+  private addLocalStorageKey(key: string = ''): void {
+    const keyDiv = document.createElement('div');
+    keyDiv.className = 'local-storage-key-row';
+    
+    const keyInput = document.createElement('input');
+    keyInput.type = 'text';
+    keyInput.value = key;
+    keyInput.placeholder = 'Enter localStorage key';
+    
+    const removeButton = document.createElement('button');
+    removeButton.textContent = 'Delete';
+    removeButton.className = 'remove-key';
+    removeButton.onclick = () => keyDiv.remove();
+    
+    keyDiv.appendChild(keyInput);
+    keyDiv.appendChild(removeButton);
+    
+    this.localStorageKeysContainer.appendChild(keyDiv);
+  }
+
   private setupEventListeners(): void {
     document.getElementById('addPairButton')?.addEventListener('click', () => {
       this.addUrlPair();
+    });
+
+    document.getElementById('addKeyButton')?.addEventListener('click', () => {
+      this.addLocalStorageKey();
     });
 
     this.saveButton.addEventListener('click', async () => {
@@ -83,12 +122,19 @@ class OptionsManager {
           developmentSites.push(devUrl);
         }
       });
+
+      // Get localStorage keys
+      const keyRows = Array.from(this.localStorageKeysContainer.getElementsByClassName('local-storage-key-row'));
+      const localStorageKeys = keyRows
+        .map(row => row.querySelector('input')?.value.trim())
+        .filter((key): key is string => key !== undefined && key !== '');
       
       await platform.storage.set({
         productionSites,
         developmentSites,
         prodSize: parseInt(this.prodSizeSelect.value),
-        devSize: parseInt(this.devSizeSelect.value)
+        devSize: parseInt(this.devSizeSelect.value),
+        localStorageKeys
       });
       
       this.showStatus('Settings saved successfully!');
