@@ -1,5 +1,5 @@
 body {
-  font-family: Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   margin: 0;
   padding: 20px;
   background-color: #f5f5f5;
@@ -9,143 +9,81 @@ body {
   max-width: 800px;
   margin: 0 auto;
   background-color: white;
-  padding: 20px;
+  padding: 30px;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 h2 {
-  margin-top: 0;
   color: #333;
+  margin-top: 0;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #eee;
 }
 
 h3 {
-  color: #666;
+  color: #2c3e50;
+  margin-top: 0;
   margin-bottom: 15px;
 }
 
-.status {
-  margin: 10px 0;
-  padding: 10px;
-  border-radius: 4px;
-  display: none;
-}
-
-.status:not(:empty) {
-  display: block;
-  background-color: #4CAF50;
-  color: white;
-}
-
-.banner-settings {
+.settings-section {
+  background-color: #fff;
+  border: 1px solid #e1e4e8;
+  border-radius: 6px;
+  padding: 20px;
   margin-bottom: 30px;
 }
 
-.size-settings {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-}
-
-.size-option {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-select {
-  padding: 8px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
-}
-
-.url-pairs {
-  margin-bottom: 30px;
-}
-
-.url-pairs-header {
-  display: grid;
-  grid-template-columns: 1fr 1fr auto;
-  gap: 10px;
-  margin-bottom: 10px;
-  font-weight: bold;
-  color: #666;
-}
-
-.url-pair {
-  display: grid;
-  grid-template-columns: 1fr 1fr auto;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-input[type="text"] {
-  padding: 8px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-button {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: background-color 0.2s;
-}
-
-.primary-button {
-  background-color: #4CAF50;
-  color: white;
-}
-
-.primary-button:hover {
-  background-color: #45a049;
-}
-
-.add-pair {
-  background-color: #2196F3;
-  color: white;
-  margin-top: 10px;
-}
-
-.add-pair:hover {
-  background-color: #1976D2;
-}
-
-.remove-pair {
-  background-color: #f44336;
-  color: white;
-}
-
-.remove-pair:hover {
-  background-color: #d32f2f;
-}
-
-.actions {
-  margin-top: 20px;
-  text-align: right;
-}
-
-.local-storage-settings {
-  margin-bottom: 20px;
+.section-description {
+  background-color: #f8f9fa;
+  border-left: 4px solid #17b417;
   padding: 15px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  margin-bottom: 20px;
+  border-radius: 0 4px 4px 0;
 }
 
-.local-storage-keys {
-  margin-top: 10px;
+.section-description p {
+  margin: 0 0 10px 0;
+  color: #444;
+  line-height: 1.5;
 }
 
-.local-storage-header {
+.section-description ul {
+  margin: 10px 0;
+  padding-left: 20px;
+}
+
+.section-description li {
+  margin: 5px 0;
+  color: #555;
+}
+
+.section-description code {
+  background-color: #e9ecef;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: monospace;
+  color: #e83e8c;
+}
+
+.url-pairs, .local-storage-keys {
+  margin-top: 15px;
+}
+
+.url-pairs-header, .local-storage-header {
   display: flex;
   margin-bottom: 10px;
   font-weight: bold;
+  color: #2c3e50;
+  border-bottom: 2px solid #eee;
+  padding-bottom: 8px;
+}
+
+.url-field-header {
+  flex: 1;
+  padding: 5px;
 }
 
 .key-field-header {
@@ -153,41 +91,139 @@ button {
   padding: 5px;
 }
 
-.local-storage-key-row {
+.url-pair, .local-storage-key-row {
   display: flex;
-  margin-bottom: 5px;
+  margin-bottom: 10px;
   align-items: center;
+  gap: 10px;
 }
 
-.local-storage-key-row input {
+.url-pair input, .local-storage-key-row input {
   flex: 1;
-  padding: 5px;
-  margin-right: 5px;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
 }
 
-.local-storage-key-row button {
-  padding: 5px 10px;
-  background-color: #ff4444;
-  color: white;
-  border: none;
-  border-radius: 3px;
-  cursor: pointer;
+.url-pair input:focus, .local-storage-key-row input:focus {
+  outline: none;
+  border-color: #17b417;
+  box-shadow: 0 0 0 2px rgba(23, 180, 23, 0.1);
 }
 
-.local-storage-key-row button:hover {
-  background-color: #cc0000;
-}
-
-.add-key {
-  margin-top: 10px;
-  padding: 8px 16px;
-  background-color: #4CAF50;
+.remove-pair, .remove-key {
+  padding: 8px 12px;
+  background-color: #dc3545;
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
 }
 
-.add-key:hover {
-  background-color: #45a049;
+.remove-pair:hover, .remove-key:hover {
+  background-color: #c82333;
+}
+
+.add-pair, .add-key {
+  margin-top: 15px;
+  padding: 10px 16px;
+  background-color: #17b417;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+
+.add-pair:hover, .add-key:hover {
+  background-color: #148f14;
+}
+
+.banner-settings {
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+}
+
+.position-setting {
+  margin-bottom: 20px;
+}
+
+.position-setting label {
+  display: block;
+  margin-bottom: 8px;
+  color: #2c3e50;
+  font-weight: 500;
+}
+
+.position-setting select {
+  width: 100%;
+  max-width: 300px;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.size-settings {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding-top: 15px;
+  border-top: 1px solid #eee;
+}
+
+.size-option {
+  flex: 1;
+  min-width: 200px;
+}
+
+.size-option label {
+  display: block;
+  margin-bottom: 8px;
+  color: #2c3e50;
+  font-weight: 500;
+}
+
+.size-option select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.actions {
+  margin-top: 30px;
+  text-align: right;
+}
+
+.primary-button {
+  padding: 10px 24px;
+  background-color: #17b417;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.primary-button:hover {
+  background-color: #148f14;
+}
+
+.status {
+  display: none;
+  padding: 10px 15px;
+  margin-bottom: 20px;
+  border-radius: 4px;
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
 } 

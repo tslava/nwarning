@@ -9,8 +9,44 @@
     <h2>Environment Warning Settings</h2>
     <div id="status" class="status"></div>
 
-    <div class="local-storage-settings">
+    <div class="settings-section">
+      <h3>Environment URL Pairs</h3>
+      <div class="section-description">
+        <p>Configure pairs of production and development URLs. The extension will show environment warnings when visiting these URLs.</p>
+        <p>You can use wildcards (*) to match dynamic parts of domains. For example:</p>
+        <ul>
+          <li>Production: <code>*.production.example.com</code></li>
+          <li>Development: <code>*.dev.example.com</code></li>
+          <li>Or more specific:</li>
+          <li>Production: <code>example.com</code></li>
+          <li>Development: <code>dev.example.com</code></li>
+        </ul>
+        <p>When switching environments, the extension will preserve the dynamic part that matches the wildcard (*).</p>
+      </div>
+      <div class="url-pairs">
+        <div class="url-pairs-header">
+          <div class="url-field-header">Production URL</div>
+          <div class="url-field-header">Development URL</div>
+        </div>
+        <div id="urlPairsContainer"></div>
+        <button id="addPairButton" class="add-pair">Add URL Pair</button>
+      </div>
+    </div>
+
+    <div class="settings-section">
       <h3>Local Storage Variables Tracking</h3>
+      <div class="section-description">
+        <p>Monitor specific localStorage keys to display warnings when their values indicate a production configuration.</p>
+        <p>The extension will:</p>
+        <ul>
+          <li>Show warning text when the key is found in localStorage</li>
+        </ul>
+        <p>Example keys to track:</p>
+        <ul>
+          <li><code>bestcompany-production-enabled</code></li>
+          <li><code>use-prod-database</code></li>
+        </ul>
+      </div>
       <div class="local-storage-keys">
         <div class="local-storage-header">
           <div class="key-field-header">Key Name</div>
@@ -20,36 +56,35 @@
       </div>
     </div>
 
-    <div class="banner-settings">
+    <div class="settings-section">
       <h3>Banner Settings</h3>
-      <div class="size-settings">
-        <div class="size-option">
-          <label for="prodSize">Production Banner Size:</label>
-          <select id="prodSize">
-            <option value="50">50px</option>
-            <option value="100">100px</option>
-            <option value="150">150px</option>
+      <div class="banner-settings">
+        <div class="position-setting">
+          <label for="bannerPosition">Banner Position:</label>
+          <select id="bannerPosition">
+            <option value="top">Top of the page</option>
+            <option value="bottom">Bottom of the page</option>
           </select>
         </div>
-        <div class="size-option">
-          <label for="devSize">Development Banner Size:</label>
-          <select id="devSize">
-            <option value="50">50px</option>
-            <option value="100">100px</option>
-            <option value="150">150px</option>
-          </select>
+        <div class="size-settings">
+          <div class="size-option">
+            <label for="prodSize">Production Banner Size:</label>
+            <select id="prodSize">
+              <option value="50">50px</option>
+              <option value="100">100px</option>
+              <option value="150">150px</option>
+            </select>
+          </div>
+          <div class="size-option">
+            <label for="devSize">Development Banner Size:</label>
+            <select id="devSize">
+              <option value="50">50px</option>
+              <option value="100">100px</option>
+              <option value="150">150px</option>
+            </select>
+          </div>
         </div>
       </div>
-    </div>
-
-    <div class="url-pairs">
-      <h3>Environment URL Pairs</h3>
-      <div class="url-pairs-header">
-        <div class="url-field-header">Production URL</div>
-        <div class="url-field-header">Development URL</div>
-      </div>
-      <div id="urlPairsContainer"></div>
-      <button id="addPairButton" class="add-pair">Add URL Pair</button>
     </div>
 
     <div class="actions">
