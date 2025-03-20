@@ -6,11 +6,13 @@ A browser extension that helps developers easily switch between production and d
 
 - 🚦 Clear visual indicators: Red banner for production, green for development environments
 - 🔄 Quick environment switching with a single click
-- ⌨️ Keyboard shortcut support (Ctrl+Shift+S or Cmd+Shift+S on Mac)
-- 🎨 Customizable banner size
+- 🎨 Customizable banner size and position (top or bottom of the page)
 - 🔗 Maintains URL paths when switching environments
 - 🎯 Support for multiple production-development URL pairs
 - 🌐 Support for both Chrome and Firefox browsers
+- 🔍 Wildcard domain pattern matching
+- 🔒 Local storage variable monitoring
+- 📍 Flexible banner positioning
 
 ## Installation
 
@@ -79,48 +81,51 @@ The extension will be available in the Firefox Add-ons store.
 3. In the options page, you can:
    - Add production-development URL pairs
    - Configure banner sizes for both environments
+   - Set banner position (top or bottom)
+   - Configure localStorage variables to monitor
 
-Example URL pairs:
+#### URL Pairs with Wildcards
+You can use wildcards (*) to match dynamic parts of domains. For example:
 ```
-Production URL          Development URL
-d.bestcomapny.io             dev.b.bestcomapny.io
-analytics.bestcomapny.io     dev.analytics.bestcomapny.io
-sblaze.bestcomapny.io        dev.sblaze.bestcomapny.io
+Production URL                    Development URL
+*.production.example.com         *.dev.example.com
+*.bestcompany.io                       *.bestcompany.io.s3-website.eu-west-2.amazonaws.com
+```
+When switching environments, the extension will preserve the dynamic part that matches the wildcard.
+
+### Local Storage Monitoring
+You can configure specific localStorage keys to monitor. The extension will:
+- Display the key-value pairs in the banner
+- Show bright text when value is '1' or 'true'
+- Show dim text when value is '0' or 'false'
+
+Example keys to monitor:
+```
+bestcompany-production-enabled
+use-prod-database
+env-mode
 ```
 
-### Banner Size Configuration
-You can adjust the banner size for both production and development environments:
-- Options: 50px, 100px, 150px
-- Different sizes can be set for production and development environments
+### Banner Settings
+You can customize:
+- Banner position: Top or bottom of the page
+- Banner size: 50px, 100px, or 150px (separate settings for production and development)
 
 ## Usage
 
 ### Visual Indicators
 - **Red Banner**: Indicates you're on a production environment
 - **Green Banner**: Indicates you're on a development environment
-
-### Switching Environments
-There are two ways to switch between environments:
-
-1. **Using the Banner Button**:
-   - Click the "Switch to Dev" button on production sites
-   - Click the "Switch to Prod" button on development sites
-
-2. **Using Keyboard Shortcut**:
-   - TODO
+- **Warning Text**: Shows monitored localStorage values with brightness indicating their state
 
 ### Features
 - The extension preserves your current path when switching environments
 - New environment pages open in a new tab
 - The banner adjusts the page layout automatically without breaking the site's design
 - Fixed and absolute positioned elements are automatically adjusted to account for the banner
-
-## Technical Details
-
-- Built with Manifest V3
-- Uses Chrome Storage API for saving settings
-- Implements a background service worker
-- Handles complex DOM manipulations without breaking page layouts
+- Wildcard domain patterns allow matching dynamic subdomains
+- Local storage monitoring provides visual feedback about environment configuration
+- Banner can be positioned at top or bottom of the page
 
 ## Troubleshooting
 
@@ -128,16 +133,17 @@ If you encounter any issues:
 
 1. **Banner Not Showing**:
    - Verify the extension is enabled
-   - Check if the current URL is in your configured pairs
+   - Check if the current URL matches your configured patterns
    - Try refreshing the page
 
 2. **Layout Issues**:
    - Try refreshing the page
    - Check if the banner size setting is appropriate for the site
+   - Try changing the banner position (top/bottom)
 
 3. **Switching Not Working**:
    - Verify your URL pairs are correctly configured
-   - Ensure the URLs match exactly with your configuration
+   - Check if your wildcard patterns match the current URL
 
 ## Contributing
 
