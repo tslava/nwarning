@@ -6,6 +6,7 @@ class OptionsManager {
   private status: HTMLElement;
   private prodSizeSelect: HTMLSelectElement;
   private devSizeSelect: HTMLSelectElement;
+  private bannerPositionSelect: HTMLSelectElement;
   private localStorageKeysContainer: HTMLElement;
 
   constructor() {
@@ -14,6 +15,7 @@ class OptionsManager {
     this.status = document.getElementById('status') as HTMLElement;
     this.prodSizeSelect = document.getElementById('prodSize') as HTMLSelectElement;
     this.devSizeSelect = document.getElementById('devSize') as HTMLSelectElement;
+    this.bannerPositionSelect = document.getElementById('bannerPosition') as HTMLSelectElement;
     this.localStorageKeysContainer = document.getElementById('localStorageKeysContainer') as HTMLElement;
     
     this.loadSettings();
@@ -26,6 +28,7 @@ class OptionsManager {
       'developmentSites',
       'prodSize',
       'devSize',
+      'bannerPosition',
       'localStorageKeys'
     ]);
     
@@ -36,6 +39,9 @@ class OptionsManager {
     // Load banner sizes
     this.prodSizeSelect.value = data.prodSize?.toString() || '50';
     this.devSizeSelect.value = data.devSize?.toString() || '50';
+    
+    // Load banner position
+    this.bannerPositionSelect.value = data.bannerPosition || 'top';
     
     // Load URL pairs
     this.urlPairsContainer.innerHTML = '';
@@ -134,6 +140,7 @@ class OptionsManager {
         developmentSites,
         prodSize: parseInt(this.prodSizeSelect.value),
         devSize: parseInt(this.devSizeSelect.value),
+        bannerPosition: this.bannerPositionSelect.value,
         localStorageKeys
       });
       

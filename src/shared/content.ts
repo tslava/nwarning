@@ -11,6 +11,7 @@ class EnvironmentBanner {
     private wrapper: HTMLElement | null = null;
     private isProduction: boolean = false;
     private bannerSize: number = 50;
+    private bannerPosition: 'top' | 'bottom' = 'top';
     private extensionEnabled: boolean = true;
     private styleElement: HTMLStyleElement | null = null;
     private warningContent: HTMLElement | null = null;
@@ -22,9 +23,32 @@ class EnvironmentBanner {
         this.setupStorageListener();
     }
 
+    private matchDomainPattern(domain: string, pattern: string): boolean {
+        // Convert the pattern to a regex pattern
+        // Escape special regex characters except *
+        const regexPattern = pattern
+            .replace(/[.+?^${}()|[\]\\]/g, '\\$&') // escape special regex chars
+            .replace(/\*/g, '.*'); // convert * to .*
+        
+        const regex = new RegExp(`^${regexPattern}$`);
+        return regex.test(domain);
+    }
+
+    private findMatchingDomain(domain: string, patterns: string[]): boolean {
+        return patterns.some(pattern => this.matchDomainPattern(domain, pattern));
+    }
+
     private async loadStateAndCheckEnvironment(): Promise<void> {
-        const data = await platform.storage.get(['extensionEnabled', 'productionSites', 'developmentSites', 'prodSize', 'devSize']);
+        const data = await platform.storage.get([
+            'extensionEnabled',
+            'productionSites',
+            'developmentSites',
+            'prodSize',
+            'devSize',
+            'bannerPosition'
+        ]);
         this.extensionEnabled = data.extensionEnabled !== false;
+        this.bannerPosition = data.bannerPosition || 'top';
         
         if (!this.extensionEnabled) {
             this.removeBanner();
@@ -36,8 +60,8 @@ class EnvironmentBanner {
         const productionSites = data.productionSites || [];
         const developmentSites = data.developmentSites || [];
         
-        this.isProduction = productionSites.includes(currentHostname);
-        const isDevelopment = developmentSites.includes(currentHostname);
+        this.isProduction = this.findMatchingDomain(currentHostname, productionSites);
+        const isDevelopment = this.findMatchingDomain(currentHostname, developmentSites);
         
         if (this.isProduction || isDevelopment) {
             this.bannerSize = this.isProduction ? (data.prodSize || 50) : (data.devSize || 50);
@@ -99,6 +123,7 @@ class EnvironmentBanner {
 
         this.wrapper = document.createElement('div');
         this.wrapper.id = 'environment-banner-wrapper';
+        this.wrapper.className = `position-${this.bannerPosition}`;
         
         this.banner = document.createElement('div');
         this.banner.id = 'environment-banner';
@@ -132,33 +157,9 @@ class EnvironmentBanner {
 
         // Create and insert style element
         this.styleElement = document.createElement('style');
-        this.styleElement.textContent = `
-            body {
-                margin-top: ${this.bannerSize}px !important;
-                width: 100% !important;
-                min-width: 100% !important;
-                position: relative !important;
-            }
-            html {
-                scroll-padding-top: ${this.bannerSize}px;
-                width: 100% !important;
-                min-width: 100% !important;
-                overflow-x: visible !important;
-            }
-            #environment-banner-wrapper {
-                width: 100% !important;
-                min-width: 100% !important;
-                max-width: 100% !important;
-                left: 0 !important;
-                right: 0 !important;
-            }
-            #environment-banner {
-                width: 100% !important;
-                min-width: 100% !important;
-                max-width: 100% !important;
-            }
-        `;
-        document.head.appendChild(this.styleElement);
+        document.documentElement.style.setProperty('--banner-height', `${this.bannerSize}px`);
+        document.body.classList.add(`banner-${this.bannerPosition}`);
+        document.documentElement.classList.add(`banner-${this.bannerPosition}`);
 
         // Adjust absolute and fixed positioned elements
         const adjustPositionedElements = () => {
@@ -169,15 +170,19 @@ class EnvironmentBanner {
                 if (position === 'fixed' || position === 'absolute') {
                     const top = window.getComputedStyle(el).top;
                     if (top !== 'auto' && !el.hasAttribute('data-adjusted')) {
-                        (el as HTMLElement).style.top = `calc(${top} + ${this.bannerSize}px)`;
+                        if (this.bannerPosition === 'top') {
+                            (el as HTMLElement).style.top = `calc(${top} + ${this.bannerSize}px)`;
+                        }
                         el.setAttribute('data-adjusted', 'true');
                     }
                 }
             });
         };
 
-        adjustPositionedElements();
-        window.addEventListener('resize', adjustPositionedElements);
+        if (this.bannerPosition === 'top') {
+            adjustPositionedElements();
+            window.addEventListener('resize', adjustPositionedElements);
+        }
     }
 
     private removeBanner(): void {
@@ -202,6 +207,11 @@ class EnvironmentBanner {
                 (el as HTMLElement).style.top = top.replace(`+ ${this.bannerSize}px`, '').trim();
             }
         });
+
+        // Remove banner classes
+        document.body.classList.remove('banner-top', 'banner-bottom');
+        document.documentElement.classList.remove('banner-top', 'banner-bottom');
+        document.documentElement.style.removeProperty('--banner-height');
     }
 
     private async switchEnvironment(): Promise<void> {
@@ -216,14 +226,48 @@ class EnvironmentBanner {
         let targetHostname: string | null = null;
         
         if (this.isProduction) {
-            const index = productionSites.indexOf(currentHostname);
-            if (index !== -1 && index < developmentSites.length) {
-                targetHostname = developmentSites[index];
+            // Find the matching production pattern
+            const matchingPattern: string | undefined = productionSites.find((pattern: string) => 
+                this.matchDomainPattern(currentHostname, pattern)
+            );
+            if (matchingPattern) {
+                const index = productionSites.indexOf(matchingPattern);
+                if (index !== -1 && index < developmentSites.length) {
+                    // If the current domain matches a wildcard pattern,
+                    // preserve the dynamic part when switching
+                    const devPattern: string = developmentSites[index];
+                    if (devPattern.includes('*')) {
+                        // Extract the dynamic part from the current hostname
+                        const dynamicPart = this.extractDynamicPart(currentHostname, matchingPattern);
+                        if (dynamicPart) {
+                            targetHostname = devPattern.replace('*', dynamicPart);
+                        }
+                    } else {
+                        targetHostname = devPattern;
+                    }
+                }
             }
         } else {
-            const index = developmentSites.indexOf(currentHostname);
-            if (index !== -1 && index < productionSites.length) {
-                targetHostname = productionSites[index];
+            // Find the matching development pattern
+            const matchingPattern: string | undefined = developmentSites.find((pattern: string) => 
+                this.matchDomainPattern(currentHostname, pattern)
+            );
+            if (matchingPattern) {
+                const index = developmentSites.indexOf(matchingPattern);
+                if (index !== -1 && index < productionSites.length) {
+                    // If the current domain matches a wildcard pattern,
+                    // preserve the dynamic part when switching
+                    const prodPattern: string = productionSites[index];
+                    if (prodPattern.includes('*')) {
+                        // Extract the dynamic part from the current hostname
+                        const dynamicPart = this.extractDynamicPart(currentHostname, matchingPattern);
+                        if (dynamicPart) {
+                            targetHostname = prodPattern.replace('*', dynamicPart);
+                        }
+                    } else {
+                        targetHostname = prodPattern;
+                    }
+                }
             }
         }
         
@@ -232,6 +276,18 @@ class EnvironmentBanner {
             currentUrl.hostname = targetHostname;
             window.open(currentUrl.toString(), '_blank');
         }
+    }
+
+    private extractDynamicPart(domain: string, pattern: string): string | null {
+        // Convert the pattern to a regex pattern with a capturing group for the wildcard
+        const regexPattern = pattern
+            .replace(/[.+?^${}()|[\]\\]/g, '\\$&') // escape special regex chars
+            .replace(/\*/g, '(.+)'); // convert * to capturing group
+        
+        const regex = new RegExp(`^${regexPattern}$`);
+        const match = domain.match(regex);
+        
+        return match ? match[1] : null;
     }
 
     private setupMessageListener(): void {
