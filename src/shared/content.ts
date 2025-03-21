@@ -74,19 +74,22 @@ class EnvironmentBanner {
         const keys = data.localStorageKeys || [];
         const warnings: Warning[] = [];
 
-        keys.forEach((key: string) => {
-            const value = localStorage.getItem(key);
-            if (value !== null) {
-                warnings.push({
-                    key,
-                    value,
-                    isWarning: value === '1' || value === 'true'
-                });
-            }
-        });
+        if (keys.length > 0) {
+            const values = await platform.getLocalStorageValues!(keys);
+            
+            Object.entries(values).forEach(([key, value]) => {
+                if (value !== null) {
+                    warnings.push({
+                        key,
+                        value,
+                        isWarning: value === '1' || value === 'true'
+                    });
+                }
+            });
 
-        if (warnings.length > 0) {
-            this.displayWarnings(warnings);
+            if (warnings.length > 0) {
+                this.displayWarnings(warnings);
+            }
         }
     }
 
@@ -111,11 +114,19 @@ class EnvironmentBanner {
     }
 
     private setupStorageListener(): void {
-        window.addEventListener('storage', (e: StorageEvent) => {
-            if (e.storageArea === localStorage) {
+        if (platform.injectStorageListener) {
+            // Use platform-specific storage listener for Firefox
+            platform.injectStorageListener(() => {
                 this.checkLocalStorageVariables();
-            }
-        });
+            });
+        } else {
+            // Use standard storage event for Chrome
+            window.addEventListener('storage', (e: StorageEvent) => {
+                if (e.storageArea === localStorage) {
+                    this.checkLocalStorageVariables();
+                }
+            });
+        }
     }
 
     private createBanner(): void {
