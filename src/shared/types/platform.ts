@@ -9,4 +9,6 @@ export interface PlatformAPI {
         get: (keys: string[]) => Promise<{ [key: string]: any }>;
         set: (items: { [key: string]: any }) => Promise<void>;
     };
+    getLocalStorageValues?: (keys: string[]) => Promise<{ [key: string]: string | null }>;
+    injectStorageListener?: (callback: () => void) => void;
 } 

@@ -35,7 +35,19 @@ const chromePlatform: PlatformAPI = {
                 });
             });
         }
-    }
+    },
+
+    // Add Chrome-specific method for localStorage access (direct access)
+    getLocalStorageValues: async (keys: string[]): Promise<{ [key: string]: string | null }> => {
+        const result: { [key: string]: string | null } = {};
+        for (const key of keys) {
+            result[key] = localStorage.getItem(key);
+        }
+        return result;
+    },
+
+    // No-op implementation for Chrome
+    injectStorageListener: () => {}
 };
 
 export default chromePlatform; 
