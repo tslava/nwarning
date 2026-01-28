@@ -47,20 +47,28 @@ The extension will be available in the Firefox Add-ons store.
 ```
 ├── src/
 │   ├── shared/           # Shared code between Chrome and Firefox
-│   │   ├── content.ts    # Content script
+│   │   ├── banner/       # Banner UI components
+│   │   │   ├── BannerRenderer.ts      # DOM creation & styling
+│   │   │   ├── BannerPositioner.ts    # Layout adjustment
+│   │   │   └── EnvironmentSwitcher.ts # URL switching logic
+│   │   ├── storage/      # Storage utilities
+│   │   │   └── StorageMonitor.ts      # localStorage monitoring
+│   │   ├── utils/        # Shared utilities
+│   │   │   └── patterns.ts            # Domain pattern matching
+│   │   ├── content.ts    # Content script orchestrator
 │   │   ├── background.ts # Background script
 │   │   ├── options.ts    # Options page logic
 │   │   ├── popup.ts      # Popup logic
 │   │   ├── html/         # HTML templates
-│   │   ├── css/         # Styles
-│   │   └── images/      # Icons and images
-│   └── platform/        # Platform-specific code
-│       ├── chrome/      # Chrome-specific implementation
-│       └── firefox/     # Firefox-specific implementation
-├── dist/               # Built extensions
-│   ├── chrome/        # Chrome build output
-│   └── firefox/       # Firefox build output
-└── webpack configs    # Build configuration
+│   │   ├── css/          # Styles
+│   │   └── images/       # Icons and images
+│   └── platform/         # Platform-specific code
+│       ├── chrome/       # Chrome-specific implementation
+│       └── firefox/      # Firefox-specific implementation
+├── dist/                 # Built extensions
+│   ├── chrome/           # Chrome build output
+│   └── firefox/          # Firefox build output
+└── webpack configs       # Build configuration
 ```
 
 ### Build Commands
