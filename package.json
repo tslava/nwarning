@@ -1,6 +1,6 @@
 {
   "name": "environment-warning-extension",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Browser extension for switching between development and production environments",
   "scripts": {
     "clean": "rm -rf dist/*",
@@ -11,7 +11,8 @@
     "watch:chrome": "webpack --config webpack.chrome.js --watch",
     "watch:firefox": "webpack --config webpack.firefox.js --watch",
     "package:chrome": "cd dist/chrome && zip -r ../chrome.zip *",
-    "package:firefox": "cd dist/firefox && zip -r ../firefox.zip *"
+    "package:firefox": "cd dist/firefox && zip -r ../firefox.zip *",
+    "all": "npm run build && npm run package:chrome && npm run package:firefox"
   },
   "devDependencies": {
     "webpack": "^5.90.3",
