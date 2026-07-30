@@ -4,27 +4,25 @@ A browser extension that helps developers easily switch between production and d
 
 ## Features
 
-- 🚦 Clear visual indicators: Red banner for production, green for development environments
-- 🔄 Quick environment switching with a single click
+- 🚦 Clear visual indicators: red banner for production, green for everything else
+- 🏷️ `PROD` / `DEV` badge on the toolbar icon, visible even with the banner hidden
+- 🔄 Switch between any hosts in a group, by click or keyboard shortcut
+- 🎯 One production host with as many dev, staging and QA stands as you need
+- 🙈 Hide the banner for a single page view without disabling anything
 - 🎨 Customizable banner size and position (top or bottom of the page)
-- 🔗 Maintains URL paths when switching environments
-- 🎯 Support for multiple production-development URL pairs
-- 🌐 Support for both Chrome and Firefox browsers
-- 🔍 Wildcard domain pattern matching
+- 🔗 Keeps the path, query and hash when switching
+- 🔍 Wildcard hostname pattern matching
 - 🔒 Local storage variable monitoring
-- 📍 Flexible banner positioning
+- ☁️ Settings follow your browser profile, and can be exported as JSON
+- ⚡ Settings apply immediately, in every open tab, with no reload
+- 🌐 Chrome and Firefox, Manifest V3 on both
 
 ## Installation
-
-### Chrome Web Store (Coming Soon)
-The extension will be available in the Chrome Web Store.
-
-### Firefox Add-ons (Coming Soon)
-The extension will be available in the Firefox Add-ons store.
 
 ### Manual Installation (Developer Mode)
 
 #### Chrome
+
 1. Run `npm run build:chrome` to build the extension
 2. Open Chrome and navigate to `chrome://extensions/`
 3. Enable "Developer mode" in the top-right corner
@@ -32,130 +30,269 @@ The extension will be available in the Firefox Add-ons store.
 5. Select the `dist/chrome` folder
 
 #### Firefox
+
 1. Run `npm run build:firefox` to build the extension
 2. Open Firefox and navigate to `about:debugging#/runtime/this-firefox`
 3. Click "Load Temporary Add-on"
 4. Select any file from the `dist/firefox` folder
 
+Firefox 140 or newer is required. Because Manifest V3 treats host access as a
+permission the user grants, the extension may start without it — in which case the
+banner never appears. The popup says so and the options page has an **Allow access
+to sites** button; if the browser declines to ask, the same section explains where
+to grant it by hand.
+
+### Do not change the Firefox add-on id
+
+`browser_specific_settings.gecko.id` in `src/shared/manifest.firefox.json` is
+`environment-switcher@example.com`. It looks like a placeholder, and it was one —
+but the add-on has been published under it, so it is now permanent. Changing it
+makes AMO treat the upload as a different add-on: existing installs stop receiving
+updates, and stored settings do not carry over, because extension storage is keyed
+by id.
+
 ## Development Setup
 
 ### Prerequisites
-- Node.js (v14 or higher)
-- npm (v6 or higher)
+
+- Node.js 20 or newer
+- npm 10 or newer
 
 ### Project Structure
+
 ```
 ├── src/
-│   ├── shared/           # Shared code between Chrome and Firefox
-│   │   ├── banner/       # Banner UI components
-│   │   │   ├── BannerRenderer.ts      # DOM creation & styling
-│   │   │   ├── BannerPositioner.ts    # Layout adjustment
-│   │   │   └── EnvironmentSwitcher.ts # URL switching logic
-│   │   ├── storage/      # Storage utilities
-│   │   │   └── StorageMonitor.ts      # localStorage monitoring
-│   │   ├── utils/        # Shared utilities
-│   │   │   └── patterns.ts            # Domain pattern matching
-│   │   ├── content.ts    # Content script orchestrator
-│   │   ├── background.ts # Background script
-│   │   ├── options.ts    # Options page logic
-│   │   ├── popup.ts      # Popup logic
-│   │   ├── html/         # HTML templates
-│   │   ├── css/          # Styles
-│   │   └── images/       # Icons and images
-│   └── platform/         # Platform-specific code
-│       ├── chrome/       # Chrome-specific implementation
-│       └── firefox/      # Firefox-specific implementation
-├── dist/                 # Built extensions
-│   ├── chrome/           # Chrome build output
-│   └── firefox/          # Firefox build output
-└── webpack configs       # Build configuration
+│   ├── shared/                 # Shared code between Chrome and Firefox
+│   │   ├── banner/
+│   │   │   ├── BannerRenderer.ts      # Banner DOM
+│   │   │   ├── BannerPositioner.ts    # Insertion and reserved space
+│   │   │   ├── OverlapResolver.ts     # Keeps the banner off the page's own bars
+│   │   │   └── EnvironmentSwitcher.ts # Resolves the counterpart URL
+│   │   ├── config/
+│   │   │   ├── schema.ts              # Settings shape
+│   │   │   ├── defaults.ts            # Default values
+│   │   │   ├── validation.ts          # Hostname normalization and validation
+│   │   │   └── settings.ts            # SettingsManager (load/save/migrate/watch)
+│   │   ├── storage/
+│   │   │   └── StorageMonitor.ts      # Page localStorage monitoring
+│   │   ├── utils/
+│   │   │   ├── patterns.ts            # Hostname pattern matching
+│   │   │   └── environment.ts         # Which side of a pair a hostname is on
+│   │   ├── types/                     # PlatformAPI and message types
+│   │   ├── content.ts                 # Content script orchestrator
+│   │   ├── background.ts              # Background worker
+│   │   ├── options.ts                 # Options page logic
+│   │   ├── popup.ts                   # Popup logic
+│   │   ├── html/ css/ images/         # Static assets
+│   │   └── manifest.{chrome,firefox}.json
+│   └── platform/                # Platform-specific implementations
+│       ├── chrome/
+│       └── firefox/
+├── dist/                        # Built extensions (chrome/ and firefox/)
+└── webpack.config.js            # One config factory, one entry per target
 ```
 
-### Build Commands
-- `npm install` - Install dependencies
-- `npm run build` - Build both Chrome and Firefox extensions
-- `npm run build:chrome` - Build Chrome extension only
-- `npm run build:firefox` - Build Firefox extension only
-- `npm run watch:chrome` - Watch Chrome files and rebuild on changes
-- `npm run watch:firefox` - Watch Firefox files and rebuild on changes
-- `npm run package:chrome` - Create Chrome extension ZIP for store submission
-- `npm run package:firefox` - Create Firefox extension ZIP for store submission
+### Commands
+
+| Command                  | What it does                                            |
+| ------------------------ | ------------------------------------------------------- |
+| `npm install`            | Install dependencies                                    |
+| `npm run build`          | Build both targets into `dist/`                         |
+| `npm run build:chrome`   | Build the Chrome target only                            |
+| `npm run build:firefox`  | Build the Firefox target only                           |
+| `npm run dev`            | Watch both targets, unminified with source maps         |
+| `npm run watch:chrome`   | Watch the Chrome target only                            |
+| `npm run typecheck`      | `tsc --noEmit`                                          |
+| `npm test`               | Run the unit tests                                      |
+| `npm run test:watch`     | Run the tests in watch mode                             |
+| `npm run lint`           | ESLint                                                  |
+| `npm run lint:ext`       | `web-ext lint` against the built Firefox bundle         |
+| `npm run format`         | Prettier                                                |
+| `npm run check`          | typecheck + lint + tests                                |
+| `npm run package:chrome` | Zip `dist/chrome` for store submission                  |
+| `npm run all`            | check, build, extension lint, then package both targets |
+
+The version in `package.json` is the single source of truth; both manifests get
+it injected at build time.
+
+The bundle is intentionally **not minified**: the whole extension is well under
+150 KB, and readable shipped code means add-on reviewers see what actually runs —
+AMO only demands a separate source-code submission when the code has been made
+unreadable.
 
 ## Configuration
 
-### Setting Up Environment Pairs
-1. Click the extension icon in your browser toolbar
-2. Click "Open Options" or right-click the extension icon and select "Options"
-3. In the options page, you can:
-   - Add production-development URL pairs
-   - Configure banner sizes for both environments
-   - Set banner position (top or bottom)
-   - Configure localStorage variables to monitor
+### Setting Up Environments
 
-#### URL Pairs with Wildcards
-You can use wildcards (*) to match dynamic parts of domains. For example:
-```
-Production URL                    Development URL
-*.production.example.com         *.dev.example.com
-*.bestcompany.io                       *.bestcompany.io.s3-website.eu-west-2.amazonaws.com
-```
-When switching environments, the extension will preserve the dynamic part that matches the wildcard.
+1. Click the extension icon in your browser toolbar
+2. Click "Open Options"
+3. In the options page you can:
+   - Add environment groups: one production host plus its non-production hosts
+   - Configure banner sizes for production and non-production
+   - Set banner position (top or bottom)
+   - Configure localStorage keys to monitor
+   - Export the configuration as JSON, or import one
+
+Saving takes effect immediately in every open tab — no page reload needed.
+
+An environment group is one production host and every host that mirrors it:
+
+| Production host   | Non-production hosts, comma separated  |
+| ----------------- | -------------------------------------- |
+| `app.example.com` | `dev.example.com, staging.example.com` |
+
+Production is singular — there is only ever one — while stands are many. The
+banner appears on every host in the group, and switching moves you between any
+two of them.
+
+#### Hostnames, not URLs
+
+Matching happens against the page's hostname. Anything else you paste is
+stripped, so `https://app.example.com:8443/login?next=/x` is stored as
+`app.example.com`. Invalid entries are reported per row and the save is refused
+rather than silently dropping them.
+
+#### Wildcards
+
+A `*` stands for exactly one hostname label:
+
+| Pattern           | Matches           | Does not match                   |
+| ----------------- | ----------------- | -------------------------------- |
+| `example.com`     | `example.com`     | `app.example.com`                |
+| `*.example.com`   | `app.example.com` | `example.com`, `a.b.example.com` |
+| `*.*.example.com` | `a.b.example.com` | `app.example.com`                |
+
+Every host in a group must contain the same number of wildcards, so whatever a
+wildcard matched can be carried across when switching:
+
+| Production host            | Non-production hosts                  |
+| -------------------------- | ------------------------------------- |
+| `*.production.example.com` | `*.dev.example.com, *.qa.example.com` |
+
+Visiting `app.production.example.com` and switching lands on
+`app.dev.example.com` or `app.qa.example.com`.
 
 ### Local Storage Monitoring
-You can configure specific localStorage keys to monitor. The extension will:
-- Display the key-value pairs in the banner
-- Show bright text when value is '1' or 'true'
-- Show dim text when value is '0' or 'false'
 
-Example keys to monitor:
-```
-bestcompany-production-enabled
-use-prod-database
-env-mode
-```
+Configure localStorage keys of the visited page to surface in the banner. Each
+present key becomes a coloured chip:
+
+| Chip              | Meaning                                          |
+| ----------------- | ------------------------------------------------ |
+| red, white text   | value is `1` or `true` — the flag is on          |
+| green, black text | any other value — the flag is off                |
+| nothing shown     | key absent, so the app uses its built-in default |
+
+The colours mean the same thing as the banner's own: red for production, green for
+everything else. So a **red chip on a green banner** is a development page pointed
+at production data, and a **green chip on a red banner** is the reverse — no
+comparison needed, the mismatch is the warning.
+
+Each chip has a `×` that removes the key from the page. That matters because these
+flags usually treat any non-empty value as an override: writing `0` does not
+restore the default, only removing the key does. Frontends read such flags once at
+startup, so the chip says "reload to apply" until the page is reloaded.
+
+Nothing about any particular key is built in — configure whichever keys your apps
+use.
 
 ### Banner Settings
-You can customize:
-- Banner position: Top or bottom of the page
-- Banner size: 50px, 100px, or 150px (separate settings for production and development)
+
+- Position: top or bottom of the page
+- Size: 30px, 50px, 100px or 150px, set separately for production and development
 
 ## Usage
 
-### Visual Indicators
-- **Red Banner**: Indicates you're on a production environment
-- **Green Banner**: Indicates you're on a development environment
-- **Warning Text**: Shows monitored localStorage values with brightness indicating their state
+- **Red banner / `PROD` badge**: production
+- **Green banner / `DEV` badge**: a non-production stand
+- **Warning text**: monitored localStorage values, highlighted when switched on
+- **Copy button**: copies the current URL's query string
+- **Close button**: hides the banner until the page is reloaded
+- **Ctrl/Cmd+Shift+S**: opens the counterpart environment in a new tab
 
-### Features
-- The extension preserves your current path when switching environments
-- New environment pages open in a new tab
-- The banner adjusts the page layout automatically without breaking the site's design
-- Fixed and absolute positioned elements are automatically adjusted to account for the banner
-- Wildcard domain patterns allow matching dynamic subdomains
-- Local storage monitoring provides visual feedback about environment configuration
-- Banner can be positioned at top or bottom of the page
+The banner's switch control names the host it will take you to. With more than one
+possible target it becomes a menu — production is listed first when you are on a
+stand, so switching to production is always the top entry. The keyboard shortcut
+takes that same first target, which makes it predictable: from a stand it always
+goes to production.
+
+The path, query string and hash are preserved, and the new environment opens in a
+new tab.
+
+### Hiding the banner temporarily
+
+The close button on the banner hides it for that page view only: the page gets its
+space back and every adjustment made to the site's own bars is undone. Reloading
+brings it back, so it cannot turn into a setting you forget you changed. The
+toolbar badge and the keyboard shortcut keep working while it is hidden.
+
+Disabling from the popup is the other tool: that is global and sticky, across
+every tab, until you switch it back on.
+
+### Sharing a configuration
+
+Settings live in synced storage, so they follow your browser profile without any
+action. The Import / Export section of the options page is for the other cases —
+handing your host list to a colleague, or moving a configuration between profiles.
+
+**Export** writes JSON into the box; **Download file** saves it as
+`environment-switcher-settings.json`, which is the convenient thing to drop into a
+chat. **Load file** reads a file back into the box _without_ applying it, so a file
+from someone else can be looked at first — **Import** is the deliberate step that
+replaces the configuration.
+
+Imported data goes through exactly the same validation as the form, and anything
+unusable is reported rather than quietly dropped. Whether the extension is switched
+on is not part of the payload.
+
+The format is JSON rather than YAML on purpose: it is what extension storage holds
+natively, so there is no conversion to get wrong, and it needs no parser bundled
+into the extension.
+
+### How the banner avoids covering the page
+
+Space for the banner is reserved with padding on the root element. That moves the
+document, but a site's own `fixed` and `sticky` bars are anchored to the viewport
+and ignore it, so those are offset individually.
+
+Affected elements are found by hit-testing the strip the banner occupies, and the
+pass re-runs on DOM mutations, scrolling, resizing and load. That matters on
+client-rendered sites, where the site's header often mounts _after_ the banner:
+a single pass at insertion time would miss it entirely. Full-height overlays such
+as drawers and modals are also shortened, so their bottom is not pushed
+off-screen. Everything is restored exactly when the extension is disabled.
+
+## Updating
+
+Both stores update the extension themselves; there is nothing to press. The popup
+shows the installed version, which is the quickest way to tell whether someone is
+running the build you think they are.
+
+Releases are cut by tagging — see [RELEASING.md](RELEASING.md).
 
 ## Troubleshooting
 
-If you encounter any issues:
+1. **Banner not showing**
+   - Open the popup: it warns when the extension has no access to sites, which
+     looks exactly like a broken extension. The options page can grant it.
+   - Verify the extension is enabled in the popup
+   - Check that the hostname matches a configured pattern (remember `*` is a
+     single label, and `*.example.com` does not match `example.com`)
 
-1. **Banner Not Showing**:
-   - Verify the extension is enabled
-   - Check if the current URL matches your configured patterns
-   - Try refreshing the page
+2. **Layout issues**
+   - Try a smaller banner size, or move the banner to the bottom
+   - Report the site: the overlap logic offsets viewport-anchored bars, and a
+     site doing something unusual may need a look
 
-2. **Layout Issues**:
-   - Try refreshing the page
-   - Check if the banner size setting is appropriate for the site
-   - Try changing the banner position (top/bottom)
-
-3. **Switching Not Working**:
-   - Verify your URL pairs are correctly configured
-   - Check if your wildcard patterns match the current URL
+3. **Switching not working**
+   - Verify the pair is configured and both sides have the same wildcard count
+   - Check that the popup blocker is not interfering if you switched from the
+     banner button
 
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+Run `npm run check` before opening one.
 
 ## License
 

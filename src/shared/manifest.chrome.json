@@ -1,15 +1,10 @@
 {
   "manifest_version": 3,
   "name": "Environment Switcher",
-  "version": "1.1",
+  "version": "0.0.0",
   "description": "Switch between development and production environments with visual indicators",
-  "permissions": [
-    "storage",
-    "commands"
-  ],
-  "host_permissions": [
-    "<all_urls>"
-  ],
+  "permissions": ["storage"],
+  "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "js/background.js"
   },
@@ -46,4 +41,4 @@
     "48": "images/icon_48x48.png",
     "128": "images/icon_128x128.png"
   }
-} 
+}

@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+# A newer push to the same ref makes the running check pointless.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Check and build both targets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck, lint and test
+        run: npm run check
+
+      - name: Build both targets
+        run: npm run build
+
+      # Catches add-on packaging problems long before a store review does.
+      - name: Lint the Firefox bundle
+        run: npm run lint:ext
+
+      - name: Package
+        run: |
+          npm run package:chrome
+          npm run package:firefox
+
+      # Lets anyone install a build without cloning and building it, which is
+      # also the only way the Firefox side gets exercised by Chrome users and
+      # vice versa.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: extension-${{ github.sha }}
+          path: |
+            dist/chrome.zip
+            dist/firefox.zip
+          if-no-files-found: error

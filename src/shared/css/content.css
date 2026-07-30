@@ -1,7 +1,13 @@
+/*
+ * Everything here is !important because it competes with arbitrary page styles.
+ * Selectors are scoped to the banner's own ids and classes so nothing leaks out.
+ */
+
 #environment-banner-wrapper {
   position: fixed !important;
   width: 100% !important;
   z-index: 2147483647 !important;
+  /* The wrapper must not swallow clicks meant for the page. */
   pointer-events: none !important;
 }
 
@@ -14,100 +20,251 @@
 }
 
 #environment-banner {
+  --banner-accent: #17b417;
+  box-sizing: border-box !important;
   width: 100% !important;
+  height: var(--banner-height, 50px) !important;
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 20px !important;
+  padding: 8px !important;
+  background-color: var(--banner-accent) !important;
+  font-family: Arial, Helvetica, sans-serif !important;
+  font-size: 16px !important;
+  font-weight: bold !important;
+  line-height: 1 !important;
+  color: #fff !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+  pointer-events: auto !important;
+}
+
+#environment-banner.is-production {
+  --banner-accent: #ff4444;
+}
+
+#environment-banner.is-development {
+  --banner-accent: #17b417;
+}
+
+/*
+ * Reserve space with padding on the root element. A margin on body collapses or
+ * is overridden on sites that position body themselves; border-box keeps
+ * `height: 100%` layouts from overflowing by the banner height.
+ */
+html.banner-top {
+  box-sizing: border-box !important;
+  padding-top: var(--banner-height) !important;
+  scroll-padding-top: var(--banner-height) !important;
+}
+
+html.banner-bottom {
+  box-sizing: border-box !important;
+  padding-bottom: var(--banner-height) !important;
+  scroll-padding-bottom: var(--banner-height) !important;
+}
+
+#environment-banner .banner-button-panel {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  margin-left: 8px !important;
+}
+
+#environment-banner .banner-trailing-panel {
+  margin-left: 0 !important;
+  margin-right: 8px !important;
+}
+
+#environment-banner .banner-center {
+  flex: 1 !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
   gap: 20px !important;
-  font-family: Arial, sans-serif !important;
-  color: white !important;
+  min-width: 0 !important;
+}
+
+#environment-banner .banner-switch {
+  position: relative !important;
+}
+
+#environment-banner .banner-switch-menu {
+  position: absolute !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  margin: 4px 0 0 !important;
+  padding: 4px !important;
+  list-style: none !important;
+  min-width: 180px !important;
+  max-width: 420px !important;
+  border-radius: 6px !important;
+  background-color: #fff !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25) !important;
+  z-index: 1 !important;
+}
+
+/* A bottom banner opens its menu upwards. */
+#environment-banner-wrapper.position-bottom #environment-banner .banner-switch-menu {
+  top: auto !important;
+  bottom: 100% !important;
+  margin: 0 0 4px !important;
+}
+
+#environment-banner-wrapper.position-top #environment-banner .banner-switch-menu {
+  top: 100% !important;
+}
+
+#environment-banner .banner-switch-item {
+  display: block !important;
   box-sizing: border-box !important;
-  font-size: 16px !important;
-  line-height: 1 !important;
+  width: 100% !important;
+  padding: 6px 10px !important;
+  border: none !important;
+  border-radius: 4px !important;
+  background: none !important;
+  color: #17b417 !important;
+  font-family: inherit !important;
+  font-size: 13px !important;
   font-weight: bold !important;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2) !important;
-  pointer-events: auto !important;
-  padding: 8px !important;
+  text-align: left !important;
+  text-shadow: none !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
 }
 
-/* Adjust body margin based on banner position */
-body.banner-top {
-  margin-top: var(--banner-height) !important;
-  margin-bottom: 0 !important;
-  transition: margin-top 0.3s ease !important;
+#environment-banner .banner-switch-item.is-production-target {
+  color: #ff4444 !important;
 }
 
-body.banner-bottom {
-  margin-bottom: var(--banner-height) !important;
-  margin-top: 0 !important;
-  transition: margin-bottom 0.3s ease !important;
+#environment-banner .banner-switch-item:hover,
+#environment-banner .banner-switch-item:focus-visible {
+  background-color: rgba(0, 0, 0, 0.07) !important;
 }
 
-/* Adjust scroll padding based on banner position */
-html.banner-top {
-  scroll-padding-top: var(--banner-height) !important;
-  scroll-padding-bottom: 0 !important;
-}
-
-html.banner-bottom {
-  scroll-padding-bottom: var(--banner-height) !important;
-  scroll-padding-top: 0 !important;
-}
-
-#environment-banner button {
+#environment-banner .banner-switch-button {
   padding: 4px 12px !important;
-  border: 2px solid white !important;
+  border: 2px solid #fff !important;
   border-radius: 4px !important;
   background-color: transparent !important;
-  color: white !important;
-  cursor: pointer !important;
+  color: #fff !important;
+  font-family: inherit !important;
   font-size: 14px !important;
   font-weight: bold !important;
-  transition: all 0.2s ease !important;
+  cursor: pointer !important;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease !important;
 }
 
-/* Style for production environment button hover */
-#environment-banner[style*="ff4444"] button:hover {
-  background-color: rgba(255, 68, 68, 0.2) !important;
+#environment-banner .banner-switch-button:hover {
+  background-color: #fff !important;
+  color: var(--banner-accent) !important;
 }
 
-/* Style for development environment button hover */
-#environment-banner[style*="17b417"] button:hover {
-  background-color: rgba(23, 180, 23, 0.2) !important;
-}
-
-#env-warning-banner {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  background-color: #4CAF50;
-  color: white;
-  padding: 8px;
-  z-index: 999999;
-  font-family: Arial, sans-serif;
-}
-
-.warning-content {
-  display: flex !important;
+#environment-banner .banner-icon-button {
+  display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
-  gap: 8px !important;
-}
-
-.warning-icon {
-  font-size: 16px !important;
-}
-
-.warning-text {
-  font-size: 14px !important;
-}
-
-.warning-text .bright {
-  font-weight: bold !important;
-  text-shadow: 0 0 5px rgba(255, 255, 255, 0.5) !important;
-}
-
-.warning-text .dim {
+  padding: 4px !important;
+  border: none !important;
+  background: none !important;
+  color: #fff !important;
+  cursor: pointer !important;
   opacity: 0.8 !important;
-} 
+  transition: opacity 0.2s ease !important;
+}
+
+#environment-banner .banner-icon-button:hover {
+  opacity: 1 !important;
+}
+
+#environment-banner .banner-icon-button svg {
+  display: block !important;
+}
+
+#environment-banner .banner-icon-button:focus-visible,
+#environment-banner .banner-switch-button:focus-visible {
+  outline: 2px solid #fff !important;
+  outline-offset: 2px !important;
+}
+
+#environment-banner .warning-content {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+}
+
+/*
+ * Chips carry their own background rather than inheriting the banner's, so a
+ * "production data" chip stays legible on a production banner. The shades are
+ * darker than the banner colours for contrast against white and black text
+ * respectively (5.9:1 and 7.6:1).
+ */
+#environment-banner .tracked-flag {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  flex: none !important;
+  max-width: 320px !important;
+  padding: 3px 4px 3px 8px !important;
+  border-radius: 4px !important;
+  font-size: 13px !important;
+  font-weight: bold !important;
+  line-height: 1.2 !important;
+  text-shadow: none !important;
+}
+
+#environment-banner .tracked-flag.is-enabled {
+  background-color: #c62828 !important;
+  color: #fff !important;
+}
+
+#environment-banner .tracked-flag.is-disabled {
+  background-color: #17b417 !important;
+  color: #000 !important;
+}
+
+/* Removed here, but the page still runs on the old value until it reloads. */
+#environment-banner .tracked-flag.is-pending {
+  background-color: #fff !important;
+  color: #333 !important;
+  font-style: italic !important;
+  padding-right: 8px !important;
+}
+
+#environment-banner .tracked-flag-text {
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  text-overflow: ellipsis !important;
+}
+
+#environment-banner .tracked-flag-reset {
+  flex: none !important;
+  width: 18px !important;
+  height: 18px !important;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 3px !important;
+  background: rgba(0, 0, 0, 0.18) !important;
+  color: inherit !important;
+  font-family: inherit !important;
+  font-size: 14px !important;
+  font-weight: bold !important;
+  line-height: 1 !important;
+  cursor: pointer !important;
+  text-shadow: none !important;
+}
+
+#environment-banner .tracked-flag-reset:hover {
+  background: rgba(0, 0, 0, 0.32) !important;
+}
+
+#environment-banner .tracked-flag-reset:focus-visible {
+  outline: 2px solid currentColor !important;
+  outline-offset: 1px !important;
+}

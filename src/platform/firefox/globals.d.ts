@@ -1,19 +1,7 @@
-declare namespace browser.runtime {
-    function openOptionsPage(): void;
-    function sendMessage(message: any): Promise<any>;
-    const onMessage: {
-        addListener: (callback: (message: any, sender: any) => void) => void;
-    };
-}
-
-declare namespace browser.tabs {
-    function query(queryInfo: { active: boolean; currentWindow: boolean }): Promise<any[]>;
-    function sendMessage(tabId: number, message: any): Promise<any>;
-}
-
-declare namespace browser.storage {
-    const local: {
-        get: (keys: string[]) => Promise<{ [key: string]: any }>;
-        set: (items: { [key: string]: any }) => Promise<void>;
-    };
-} 
+/**
+ * Firefox exposes the WebExtension API under `browser` in addition to the
+ * `chrome` alias. Since Firefox 109 (MV3) the surface we use is shape-compatible
+ * with the Chrome typings, and both are promise-based, so reusing `typeof chrome`
+ * is accurate here and keeps a single source of API types (@types/chrome).
+ */
+declare const browser: typeof chrome;

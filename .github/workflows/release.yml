@@ -1,0 +1,122 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  build:
+    name: Verify, build and publish a GitHub release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # The manifests take their version from package.json, so a tag that
+      # disagrees with it would ship a build labelled with a different version
+      # than the release it came from.
+      - name: Verify the tag matches package.json
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg="$(node -p "require('./package.json').version")"
+          if [ "$tag" != "$pkg" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $pkg"
+            exit 1
+          fi
+          echo "Releasing $pkg"
+
+      - name: Typecheck, lint and test
+        run: npm run check
+
+      - name: Build both targets
+        run: npm run build
+
+      - name: Lint the Firefox bundle
+        run: npm run lint:ext
+
+      - name: Package
+        run: |
+          npm run package:chrome
+          npm run package:firefox
+
+      # The exact bytes the store jobs will submit, so nothing is rebuilt after
+      # approval.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ github.ref_name }}
+          path: dist
+          if-no-files-found: error
+
+      # Available immediately, without waiting for either store's review.
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes \
+            dist/chrome.zip dist/firefox.zip
+
+  publish:
+    name: Submit to the stores
+    needs: build
+    runs-on: ubuntu-latest
+    # Configure this environment with yourself as a required reviewer: stores
+    # have no rollback, only a higher version, so submission is a decision.
+    environment: stores
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-${{ github.ref_name }}
+          path: dist
+
+      - name: Upload to the Chrome Web Store
+        env:
+          CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+          PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
+        run: >
+          npx chrome-webstore-upload-cli upload
+          --source dist/chrome.zip
+          --extension-id "${{ secrets.CWS_EXTENSION_ID }}"
+
+      # Separate from the upload so a rejected archive and a failed publish are
+      # distinguishable in the log.
+      - name: Publish on the Chrome Web Store
+        env:
+          CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+          PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
+        run: >
+          npx chrome-webstore-upload-cli publish
+          --extension-id "${{ secrets.CWS_EXTENSION_ID }}"
+
+      # No --upload-source-code: the bundle is not minified, so AMO has readable
+      # code already. Keep it that way, or this needs a source archive too.
+      - name: Submit to addons.mozilla.org
+        run: >
+          npx web-ext sign
+          --source-dir dist/firefox
+          --channel listed
+          --api-key "${{ secrets.AMO_JWT_ISSUER }}"
+          --api-secret "${{ secrets.AMO_JWT_SECRET }}"
+          --approval-timeout 0
