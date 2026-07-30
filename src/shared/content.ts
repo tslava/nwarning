@@ -1,113 +1,150 @@
+import { BannerPositioner, BannerRenderer, EnvironmentSwitcher } from './banner';
+import type { SwitchTarget } from './banner/EnvironmentSwitcher';
+import { settings } from './config/settings';
+import type { Settings } from './config/schema';
 import { platform } from './platform';
-import { BannerRenderer, BannerPositioner, EnvironmentSwitcher } from './banner';
-import { StorageMonitor, Warning } from './storage/StorageMonitor';
-import { matchDomainPattern } from './utils/patterns';
+import { StorageMonitor, type Warning } from './storage/StorageMonitor';
+import type { ExtensionMessage, SwitchEnvironmentResponse } from './types/messages';
+import { matchEnvironment, type Environment, type EnvironmentMatch } from './utils/environment';
+
+/**
+ * The content script runs at document_idle, where body already exists, but the
+ * banner is inserted into body so guard against ever running earlier.
+ */
+function documentReady(): Promise<void> {
+  if (document.body) return Promise.resolve();
+  return new Promise((resolve) => {
+    document.addEventListener('DOMContentLoaded', () => resolve(), { once: true });
+  });
+}
 
 class EnvironmentBanner {
-    private renderer: BannerRenderer | null = null;
-    private positioner: BannerPositioner | null = null;
-    private switcher: EnvironmentSwitcher | null = null;
-    private storageMonitor: StorageMonitor;
+  private renderer: BannerRenderer | null = null;
+  private positioner: BannerPositioner | null = null;
+  /**
+   * Outlives the banner: hiding the banner must not disable the keyboard
+   * shortcut, which needs a switcher to resolve its target.
+   */
+  private switcher: EnvironmentSwitcher | null = null;
+  private readonly storageMonitor: StorageMonitor;
 
-    private isProduction: boolean = false;
-    private bannerSize: number = 50;
-    private bannerPosition: 'top' | 'bottom' = 'top';
-    private extensionEnabled: boolean = true;
+  /**
+   * Latest warnings, kept here rather than pushed straight at the renderer:
+   * localStorage can resolve before the banner exists, and the old code dropped
+   * those warnings on the floor.
+   */
+  private warnings: Warning[] = [];
 
-    constructor() {
-        this.storageMonitor = new StorageMonitor((warnings) => this.displayWarnings(warnings));
-        this.setupMessageListener();
-        this.loadStateAndCheckEnvironment();
-        this.storageMonitor.checkLocalStorageVariables();
-        this.storageMonitor.setupStorageListener();
+  /**
+   * Set by the banner's close button. Deliberately in memory only: it survives
+   * client-side navigation and settings changes, and is forgotten on reload, so
+   * "hide this" never turns into a setting the user must remember to undo.
+   */
+  private dismissed = false;
+
+  constructor() {
+    this.storageMonitor = new StorageMonitor((warnings) => this.onWarnings(warnings));
+    this.registerMessageHandler();
+    // Settings changes are applied live, in every tab, without a reload.
+    settings.onChange((next) => void this.apply(next));
+    void this.start();
+  }
+
+  private async start(): Promise<void> {
+    const [current] = await Promise.all([settings.load(), documentReady()]);
+    await this.apply(current);
+    this.storageMonitor.start();
+  }
+
+  private async apply(next: Settings): Promise<void> {
+    this.storageMonitor.setKeys(next.localStorageKeys);
+
+    const match = matchEnvironment(next.groups, window.location.hostname);
+    const active = next.extensionEnabled && match !== null;
+
+    // Rebuild unconditionally: size, position and groups can all have changed,
+    // and a teardown/rebuild is cheaper to reason about than diffing.
+    this.removeBanner();
+    this.switcher = active && match ? new EnvironmentSwitcher(match) : null;
+
+    if (active && match && !this.dismissed) {
+      this.showBanner(next, match);
     }
 
-    private async loadStateAndCheckEnvironment(): Promise<void> {
-        const data = await platform.storage.get([
-            'extensionEnabled',
-            'productionSites',
-            'developmentSites',
-            'prodSize',
-            'devSize',
-            'bannerPosition'
-        ]);
+    // Reported even when the banner is hidden: the badge is what tells you which
+    // environment this is once the banner is out of the way.
+    this.reportEnvironment(active && match ? match.environment : null);
 
-        this.extensionEnabled = data.extensionEnabled !== false;
-        this.bannerPosition = data.bannerPosition || 'top';
+    await this.storageMonitor.refresh();
+  }
 
-        if (!this.extensionEnabled) {
-            this.removeBanner();
-            return;
-        }
+  private reportEnvironment(environment: Environment | null): void {
+    void platform.sendMessage({ command: 'environment-detected', environment }).catch(() => {
+      // The background worker may be asleep or restarting; the badge is
+      // cosmetic, so a dropped report is not worth surfacing.
+    });
+  }
 
-        const currentHostname = window.location.hostname;
-        const productionSites: string[] = data.productionSites || [];
-        const developmentSites: string[] = data.developmentSites || [];
+  private showBanner(config: Settings, match: EnvironmentMatch): void {
+    const isProduction = match.environment === 'production';
+    const height = isProduction ? config.prodSize : config.devSize;
 
-        this.isProduction = productionSites.some(pattern => matchDomainPattern(currentHostname, pattern));
-        const isDevelopment = developmentSites.some(pattern => matchDomainPattern(currentHostname, pattern));
+    this.renderer = new BannerRenderer({
+      isProduction,
+      bannerSize: height,
+      bannerPosition: config.bannerPosition,
+      targets: this.switcher?.resolveTargets() ?? [],
+      onSwitch: (target) => this.openTarget(target),
+      onDismiss: () => this.dismiss(),
+      onResetKey: (key) => void this.storageMonitor.remove(key),
+    });
 
-        if (this.isProduction || isDevelopment) {
-            this.bannerSize = this.isProduction ? (data.prodSize || 50) : (data.devSize || 50);
-            this.createBanner();
-        }
-    }
+    const elements = this.renderer.create();
+    if (!elements) return;
 
-    private createBanner(): void {
-        if (this.renderer || !this.extensionEnabled) return;
+    this.positioner = new BannerPositioner(elements.wrapper, height, config.bannerPosition);
+    this.positioner.start();
 
-        this.switcher = new EnvironmentSwitcher(this.isProduction);
+    this.renderer.displayWarnings(this.warnings);
+  }
 
-        this.renderer = new BannerRenderer({
-            isProduction: this.isProduction,
-            bannerSize: this.bannerSize,
-            bannerPosition: this.bannerPosition,
-            onSwitchEnvironment: () => this.switcher?.switchEnvironment()
-        });
+  private removeBanner(): void {
+    this.positioner?.stop();
+    this.positioner = null;
+    this.renderer?.destroy();
+    this.renderer = null;
+  }
 
-        const elements = this.renderer.create();
-        if (!elements) return;
+  /**
+   * Hide the banner for this page view; reloading brings it back. The keyboard
+   * shortcut keeps working, since nothing about the environment has changed.
+   */
+  private dismiss(): void {
+    this.dismissed = true;
+    this.removeBanner();
+  }
 
-        this.positioner = new BannerPositioner(
-            elements.wrapper,
-            this.bannerSize,
-            this.bannerPosition
-        );
-        this.positioner.insertAndAdjustLayout();
-    }
+  private onWarnings(warnings: Warning[]): void {
+    this.warnings = warnings;
+    this.renderer?.displayWarnings(warnings);
+  }
 
-    private removeBanner(): void {
-        if (this.positioner) {
-            this.positioner.cleanup();
-            this.positioner = null;
-        }
-        if (this.renderer) {
-            this.renderer.destroy();
-            this.renderer = null;
-        }
-        this.switcher = null;
-    }
+  /** Opened from the banner, where a real user gesture exists. */
+  private openTarget(target: SwitchTarget): void {
+    window.open(target.url, '_blank');
+  }
 
-    private displayWarnings(warnings: Warning[]): void {
-        this.renderer?.displayWarnings(warnings);
-    }
-
-    private setupMessageListener(): void {
-        platform.onMessage.addListener(async (message: { command: string }) => {
-            if (message.command === 'toggle-environment') {
-                this.switcher?.switchEnvironment();
-            } else if (message.command === 'extension-state-changed') {
-                const data = await platform.storage.get(['extensionEnabled']);
-                this.extensionEnabled = data.extensionEnabled !== false;
-
-                if (this.extensionEnabled) {
-                    this.loadStateAndCheckEnvironment();
-                } else {
-                    this.removeBanner();
-                }
-            }
-        });
-    }
+  private registerMessageHandler(): void {
+    platform.onMessage.addListener((message: ExtensionMessage) => {
+      if (message.command !== 'switch-environment') return undefined;
+      // The keyboard shortcut has no user gesture here, so hand the URL back and
+      // let the background worker open it instead of being popup-blocked.
+      const response: SwitchEnvironmentResponse = {
+        targetUrl: this.switcher?.resolvePrimaryTarget()?.url ?? null,
+      };
+      return Promise.resolve(response);
+    });
+  }
 }
 
 new EnvironmentBanner();

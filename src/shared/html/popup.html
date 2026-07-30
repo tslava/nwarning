@@ -1,21 +1,33 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
-  <title>Environment Warning</title>
-  <link rel="stylesheet" href="../css/popup.css">
-</head>
-<body>
-  <div class="container">
-    <h3>Environment Warning</h3>
-    <p id="status">Extension is active</p>
-    <button id="toggleButton">Disable Extension</button>
-    <button id="optionsButton">Open Options</button>
-    <div class="shortcuts">
-      <h4>Keyboard Shortcuts</h4>
-      <p><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> - Switch Environment</p>
-      <p class="mac-only"><kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> - Switch Environment</p>
+  <head>
+    <title>Environment Warning</title>
+    <link rel="stylesheet" href="../css/popup.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h3>Environment Warning</h3>
+      <p id="status">Extension is active</p>
+
+      <div id="hostAccessWarning" class="host-access-warning" role="alert" hidden>
+        <p>
+          <strong>No access to sites.</strong> The banner cannot appear until the extension is
+          allowed to run on the pages you visit.
+        </p>
+        <button id="fixAccessButton" type="button">Fix in options</button>
+      </div>
+
+      <button id="toggleButton">Disable Extension</button>
+      <button id="optionsButton">Open Options</button>
+
+      <div class="shortcuts">
+        <h4>Keyboard Shortcuts</h4>
+        <p><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> - Switch Environment</p>
+        <p class="mac-only"><kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> - Switch Environment</p>
+      </div>
+
+      <p class="version">Version <span id="version"></span></p>
     </div>
-  </div>
-  <script src="../js/popup.js"></script>
-</body>
-</html> 
+    <script src="../js/popup.js"></script>
+  </body>
+</html>

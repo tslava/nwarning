@@ -1,5 +1,6 @@
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   margin: 0;
   padding: 20px;
   background-color: #f5f5f5;
@@ -68,11 +69,13 @@ h3 {
   color: #e83e8c;
 }
 
-.url-pairs, .local-storage-keys {
+.environments,
+.local-storage-keys {
   margin-top: 15px;
 }
 
-.url-pairs-header, .local-storage-header {
+.environments-header,
+.local-storage-header {
   display: flex;
   margin-bottom: 10px;
   font-weight: bold;
@@ -81,7 +84,7 @@ h3 {
   padding-bottom: 8px;
 }
 
-.url-field-header {
+.env-field-header {
   flex: 1;
   padding: 5px;
 }
@@ -91,14 +94,29 @@ h3 {
   padding: 5px;
 }
 
-.url-pair, .local-storage-key-row {
+.env-group,
+.local-storage-key-row {
   display: flex;
   margin-bottom: 10px;
   align-items: center;
   gap: 10px;
+  /* Lets the validation message wrap onto its own line below the inputs. */
+  flex-wrap: wrap;
 }
 
-.url-pair input, .local-storage-key-row input {
+.row-error {
+  flex-basis: 100%;
+  margin: 0;
+  color: #dc3545;
+  font-size: 13px;
+}
+
+.env-group.has-error input {
+  border-color: #dc3545;
+}
+
+.env-group input,
+.local-storage-key-row input {
   flex: 1;
   padding: 8px 12px;
   border: 1px solid #ddd;
@@ -106,13 +124,20 @@ h3 {
   font-size: 14px;
 }
 
-.url-pair input:focus, .local-storage-key-row input:focus {
+/* The non-production field holds a list, so give it more room. */
+.env-group .group-development {
+  flex: 2;
+}
+
+.env-group input:focus,
+.local-storage-key-row input:focus {
   outline: none;
   border-color: #17b417;
   box-shadow: 0 0 0 2px rgba(23, 180, 23, 0.1);
 }
 
-.remove-pair, .remove-key {
+.remove-group,
+.remove-key {
   padding: 8px 12px;
   background-color: #dc3545;
   color: white;
@@ -123,11 +148,13 @@ h3 {
   transition: background-color 0.2s;
 }
 
-.remove-pair:hover, .remove-key:hover {
+.remove-group:hover,
+.remove-key:hover {
   background-color: #c82333;
 }
 
-.add-pair, .add-key {
+.add-group,
+.add-key {
   margin-top: 15px;
   padding: 10px 16px;
   background-color: #17b417;
@@ -139,8 +166,40 @@ h3 {
   transition: background-color 0.2s;
 }
 
-.add-pair:hover, .add-key:hover {
+.add-group:hover,
+.add-key:hover {
   background-color: #148f14;
+}
+
+.site-access {
+  border-color: #f5c6cb;
+  background-color: #fff8f8;
+}
+
+.site-access .section-description {
+  border-left-color: #dc3545;
+}
+
+.transfer-area {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  resize: vertical;
+}
+
+.transfer-area:focus {
+  outline: none;
+  border-color: #17b417;
+  box-shadow: 0 0 0 2px rgba(23, 180, 23, 0.1);
+}
+
+.transfer-actions {
+  display: flex;
+  gap: 10px;
 }
 
 .banner-settings {
@@ -226,4 +285,10 @@ h3 {
   background-color: #d4edda;
   color: #155724;
   border: 1px solid #c3e6cb;
-} 
+}
+
+.status.error {
+  background-color: #f8d7da;
+  color: #721c24;
+  border-color: #f5c6cb;
+}

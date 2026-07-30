@@ -26,7 +26,7 @@ button {
 }
 
 #toggleButton {
-  background-color: #4CAF50;
+  background-color: #4caf50;
   color: white;
 }
 
@@ -35,12 +35,12 @@ button {
 }
 
 #optionsButton {
-  background-color: #2196F3;
+  background-color: #2196f3;
   color: white;
 }
 
 #optionsButton:hover {
-  background-color: #1976D2;
+  background-color: #1976d2;
 }
 
 .shortcuts {
@@ -75,4 +75,25 @@ kbd {
   .mac-only {
     display: block;
   }
-} 
+}
+
+.host-access-warning {
+  margin: 12px 0;
+  padding: 10px 12px;
+  border: 1px solid #f5c6cb;
+  border-radius: 4px;
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.host-access-warning p {
+  margin: 0 0 8px 0;
+  line-height: 1.4;
+}
+
+.version {
+  margin: 12px 0 0;
+  color: #888;
+  font-size: 11px;
+  text-align: right;
+}

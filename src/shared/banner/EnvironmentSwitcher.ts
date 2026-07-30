@@ -1,80 +1,53 @@
 /**
- * Handles environment switching logic between production and development URLs.
+ * Resolves the URLs the current page can be switched to inside its group.
  */
 
-import { platform } from '../platform';
-import { matchDomainPattern, extractDynamicPart } from '../utils/patterns';
+import { translateHostname } from '../utils/patterns';
+import type { EnvironmentMatch } from '../utils/environment';
+
+export interface SwitchTarget {
+  /** Concrete hostname, with any wildcard filled in from the current one. */
+  hostname: string;
+  url: string;
+  isProduction: boolean;
+}
 
 export class EnvironmentSwitcher {
-    private isProduction: boolean;
+  constructor(private readonly match: EnvironmentMatch) {}
 
-    constructor(isProduction: boolean) {
-        this.isProduction = isProduction;
+  /**
+   * Every other host in the group, nearest thing first: production leads when we
+   * are on a stand, and the stands are listed in configured order when we are on
+   * production. The current host is never a target.
+   */
+  resolveTargets(currentUrl: string = window.location.href): SwitchTarget[] {
+    const url = new URL(currentUrl);
+    const { group, pattern } = this.match;
+
+    const patterns =
+      this.match.environment === 'production'
+        ? group.development
+        : [group.production, ...group.development.filter((host) => host !== pattern)];
+
+    const targets: SwitchTarget[] = [];
+    for (const candidate of patterns) {
+      const hostname = translateHostname(url.hostname, pattern, candidate);
+      if (!hostname || hostname === url.hostname) continue;
+
+      const target = new URL(url.toString());
+      target.hostname = hostname;
+      targets.push({
+        hostname,
+        url: target.toString(),
+        isProduction: candidate === group.production,
+      });
     }
 
-    async switchEnvironment(): Promise<void> {
-        const data = await platform.storage.get(['productionSites', 'developmentSites']);
-        const currentHostname = window.location.hostname;
+    return targets;
+  }
 
-        const productionSites: string[] = data.productionSites || [];
-        const developmentSites: string[] = data.developmentSites || [];
-
-        const targetHostname = this.calculateTargetHostname(
-            currentHostname,
-            productionSites,
-            developmentSites
-        );
-
-        if (targetHostname) {
-            const currentUrl = new URL(window.location.href);
-            currentUrl.hostname = targetHostname;
-            window.open(currentUrl.toString(), '_blank');
-        }
-    }
-
-    private calculateTargetHostname(
-        currentHostname: string,
-        productionSites: string[],
-        developmentSites: string[]
-    ): string | null {
-        if (this.isProduction) {
-            return this.findTargetFromPattern(
-                currentHostname,
-                productionSites,
-                developmentSites
-            );
-        } else {
-            return this.findTargetFromPattern(
-                currentHostname,
-                developmentSites,
-                productionSites
-            );
-        }
-    }
-
-    private findTargetFromPattern(
-        currentHostname: string,
-        sourcePatterns: string[],
-        targetPatterns: string[]
-    ): string | null {
-        const matchingPattern = sourcePatterns.find(pattern =>
-            matchDomainPattern(currentHostname, pattern)
-        );
-
-        if (!matchingPattern) return null;
-
-        const index = sourcePatterns.indexOf(matchingPattern);
-        if (index === -1 || index >= targetPatterns.length) return null;
-
-        const targetPattern = targetPatterns[index];
-
-        if (targetPattern.includes('*')) {
-            const dynamicPart = extractDynamicPart(currentHostname, matchingPattern);
-            if (dynamicPart) {
-                return targetPattern.replace('*', dynamicPart);
-            }
-        }
-
-        return targetPattern;
-    }
+  /** Target used by the keyboard shortcut: production, or the first stand. */
+  resolvePrimaryTarget(currentUrl: string = window.location.href): SwitchTarget | null {
+    return this.resolveTargets(currentUrl)[0] ?? null;
+  }
 }

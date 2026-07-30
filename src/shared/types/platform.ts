@@ -1,14 +1,72 @@
+import type { ExtensionMessage, MessageSender, TabInfo } from './messages';
+
+/**
+ * Host access, which Manifest V3 leaves to the user on Firefox. Chrome grants the
+ * manifest's host permissions at install, so there it is already true and the UI
+ * built on this never appears.
+ */
+export interface PermissionsPort {
+  hasHostAccess: () => Promise<boolean>;
+  /**
+   * Ask for host access. Must be called from a user gesture, and from a tab
+   * rather than a popup — Firefox can close the popup and lose the request.
+   * Resolves false if the user declines or the browser refuses to ask.
+   */
+  requestHostAccess: () => Promise<boolean>;
+}
+
+export interface StorageArea {
+  get: (keys: string[]) => Promise<Record<string, unknown>>;
+  set: (items: Record<string, unknown>) => Promise<void>;
+  onChanged: (listener: (changedKeys: string[]) => void) => void;
+}
+
 export interface PlatformAPI {
-    openOptionsPage: () => void;
-    getCurrentTab: () => Promise<any>;
-    sendMessageToTab: (tabId: number, message: any) => Promise<any>;
-    onMessage: {
-        addListener: (callback: (message: any, sender: any) => void) => void;
-    };
-    storage: {
-        get: (keys: string[]) => Promise<{ [key: string]: any }>;
-        set: (items: { [key: string]: any }) => Promise<void>;
-    };
-    getLocalStorageValues?: (keys: string[]) => Promise<{ [key: string]: string | null }>;
-    injectStorageListener?: (callback: () => void) => void;
-} 
+  openOptionsPage: () => void;
+  /** Version from the manifest, so support questions start with a known build. */
+  getVersion: () => string;
+  permissions: PermissionsPort;
+  getCurrentTab: () => Promise<TabInfo | undefined>;
+  sendMessageToTab: (tabId: number, message: ExtensionMessage) => Promise<unknown>;
+  /** Send to the extension's own pages and background worker. */
+  sendMessage: (message: ExtensionMessage) => Promise<unknown>;
+  createTab: (options: { url: string; index?: number }) => Promise<void>;
+
+  onMessage: {
+    addListener: (
+      handler: (
+        message: ExtensionMessage,
+        sender: MessageSender,
+      ) => void | Promise<unknown> | unknown,
+    ) => void;
+  };
+
+  onCommand: {
+    addListener: (handler: (command: string) => void) => void;
+  };
+
+  /**
+   * Badge a single tab's toolbar icon. Empty text clears it. Background context
+   * only — the action API is not exposed to content scripts.
+   */
+  setBadge: (options: { tabId: number; text: string; color?: string }) => Promise<void>;
+
+  /**
+   * `sync` is where settings live, so a configuration follows the browser
+   * profile. `local` is read once to migrate configurations written before that
+   * change.
+   */
+  storage: {
+    sync: StorageArea;
+    local: StorageArea;
+  };
+
+  /** Read keys from the *page's* localStorage (content script context only). */
+  getLocalStorageValues: (keys: string[]) => Promise<Record<string, string | null>>;
+
+  /** Observe writes to the page's localStorage (content script context only). */
+  watchLocalStorage: (onChange: () => void) => void;
+
+  /** Remove a key from the *page's* localStorage (content script context only). */
+  removeLocalStorageValue: (key: string) => Promise<void>;
+}

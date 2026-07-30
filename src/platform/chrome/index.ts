@@ -1,53 +1,115 @@
-import { PlatformAPI } from '../../shared/types/platform';
+import type { PlatformAPI, StorageArea } from '../../shared/types/platform';
+
+/** Matches the manifest's host_permissions. */
+const HOST_ORIGINS = ['<all_urls>'];
+/** Wraps one chrome.storage area behind the platform-neutral StorageArea shape. */
+function createStorageArea(area: 'sync' | 'local'): StorageArea {
+  return {
+    get: (keys) => chrome.storage[area].get(keys),
+    set: (items) => chrome.storage[area].set(items),
+    onChanged: (listener) => {
+      chrome.storage.onChanged.addListener((changes, changedArea) => {
+        if (changedArea !== area) return;
+        listener(Object.keys(changes));
+      });
+    },
+  };
+}
 
 const chromePlatform: PlatformAPI = {
-    openOptionsPage: () => {
-        chrome.runtime.openOptionsPage();
-    },
-    
-    getCurrentTab: async () => {
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        return tab;
-    },
-    
-    sendMessageToTab: async (tabId: number, message: any) => {
-        return await chrome.tabs.sendMessage(tabId, message);
-    },
-    
-    onMessage: {
-        addListener: (callback: (message: any, sender: any) => void) => {
-            chrome.runtime.onMessage.addListener(callback);
-        }
-    },
-    
-    storage: {
-        get: async (keys: string[]) => {
-            return new Promise((resolve) => {
-                chrome.storage.local.get(keys, (result) => {
-                    resolve(result);
-                });
-            });
-        },
-        set: async (items: { [key: string]: any }) => {
-            return new Promise((resolve) => {
-                chrome.storage.local.set(items, () => {
-                    resolve();
-                });
-            });
-        }
-    },
+  openOptionsPage: () => {
+    chrome.runtime.openOptionsPage();
+  },
 
-    // Add Chrome-specific method for localStorage access (direct access)
-    getLocalStorageValues: async (keys: string[]): Promise<{ [key: string]: string | null }> => {
-        const result: { [key: string]: string | null } = {};
-        for (const key of keys) {
-            result[key] = localStorage.getItem(key);
-        }
-        return result;
-    },
+  getVersion: () => chrome.runtime.getManifest().version,
 
-    // No-op implementation for Chrome
-    injectStorageListener: () => {}
+  permissions: {
+    hasHostAccess: async () => {
+      try {
+        return await chrome.permissions.contains({ origins: HOST_ORIGINS });
+      } catch {
+        // Treat an unanswerable question as "granted": showing a warning we
+        // cannot act on would be worse than showing nothing.
+        return true;
+      }
+    },
+    requestHostAccess: async () => {
+      try {
+        return await chrome.permissions.request({ origins: HOST_ORIGINS });
+      } catch {
+        // Some browsers refuse to request origins that are not declared
+        // optional; the caller falls back to telling the user to do it by hand.
+        return false;
+      }
+    },
+  },
+
+  getCurrentTab: async () => {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    return tab;
+  },
+
+  sendMessageToTab: (tabId, message) => chrome.tabs.sendMessage(tabId, message),
+
+  sendMessage: (message) => chrome.runtime.sendMessage(message),
+
+  createTab: async (options) => {
+    await chrome.tabs.create(options);
+  },
+
+  onMessage: {
+    addListener: (handler) => {
+      chrome.runtime.onMessage.addListener(handler);
+    },
+  },
+
+  onCommand: {
+    addListener: (handler) => {
+      chrome.commands.onCommand.addListener(handler);
+    },
+  },
+
+  setBadge: async ({ tabId, text, color }) => {
+    await chrome.action.setBadgeText({ tabId, text });
+    if (text && color) {
+      await chrome.action.setBadgeBackgroundColor({ tabId, color });
+    }
+  },
+
+  storage: {
+    sync: createStorageArea('sync'),
+    local: createStorageArea('local'),
+  },
+
+  // Chrome content scripts run in an isolated world but share the page's origin,
+  // so the page's localStorage is directly reachable.
+  getLocalStorageValues: async (keys) => {
+    const result: Record<string, string | null> = {};
+    for (const key of keys) {
+      try {
+        result[key] = localStorage.getItem(key);
+      } catch {
+        // Sandboxed or storage-partitioned contexts can throw on access.
+        result[key] = null;
+      }
+    }
+    return result;
+  },
+
+  removeLocalStorageValue: async (key) => {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      // Sandboxed or storage-partitioned contexts can throw on access.
+    }
+  },
+
+  watchLocalStorage: (onChange) => {
+    // Fires for writes made by other tabs of the same origin.
+    window.addEventListener('storage', (event) => {
+      if (event.storageArea === localStorage) onChange();
+    });
+  },
 };
 
-export default chromePlatform; 
+export default chromePlatform;

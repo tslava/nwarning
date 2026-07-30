@@ -1,96 +1,154 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
-  <title>Environment Warning Settings</title>
-  <link rel="stylesheet" href="../css/options.css">
-</head>
-<body>
-  <div class="container">
-    <h2>Environment Warning Settings</h2>
-    <div id="status" class="status"></div>
+  <head>
+    <title>Environment Warning Settings</title>
+    <link rel="stylesheet" href="../css/options.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h2>Environment Warning Settings</h2>
+      <div id="status" class="status"></div>
 
-    <div class="settings-section">
-      <h3>Environment URL Pairs</h3>
-      <div class="section-description">
-        <p>Configure pairs of production and development URLs. The extension will show environment warnings when visiting these URLs.</p>
-        <p>You can use wildcards (*) to match dynamic parts of domains. For example:</p>
-        <ul>
-          <li>Production: <code>*.production.example.com</code></li>
-          <li>Development: <code>*.dev.example.com</code></li>
-          <li>Or more specific:</li>
-          <li>Production: <code>example.com</code></li>
-          <li>Development: <code>dev.example.com</code></li>
-        </ul>
-        <p>When switching environments, the extension will preserve the dynamic part that matches the wildcard (*).</p>
-      </div>
-      <div class="url-pairs">
-        <div class="url-pairs-header">
-          <div class="url-field-header">Production URL</div>
-          <div class="url-field-header">Development URL</div>
+      <div id="siteAccessSection" class="settings-section site-access" hidden>
+        <h3>Site access</h3>
+        <div class="section-description">
+          <p>
+            The extension has no permission to run on the pages you visit, so the banner will never
+            appear. Manifest V3 leaves this decision to you.
+          </p>
+          <p id="siteAccessFallback" hidden>
+            The browser would not ask. Grant access from the browser's own extension settings — in
+            Firefox, the extension's entry in <code>about:addons</code> &rarr; Permissions; in
+            Chrome, its card in <code>chrome://extensions</code> &rarr; Site access.
+          </p>
         </div>
-        <div id="urlPairsContainer"></div>
-        <button id="addPairButton" class="add-pair">Add URL Pair</button>
+        <button id="grantAccessButton" type="button" class="primary-button">
+          Allow access to sites
+        </button>
       </div>
-    </div>
 
-    <div class="settings-section">
-      <h3>Local Storage Variables Tracking</h3>
-      <div class="section-description">
-        <p>Monitor specific localStorage keys to display warnings when their values indicate a production configuration.</p>
-        <p>The extension will:</p>
-        <ul>
-          <li>Show warning text when the key is found in localStorage</li>
-        </ul>
-        <p>Example keys to track:</p>
-        <ul>
-          <li><code>bestcompany-production-enabled</code></li>
-          <li><code>use-prod-database</code></li>
-        </ul>
-      </div>
-      <div class="local-storage-keys">
-        <div class="local-storage-header">
-          <div class="key-field-header">Key Name</div>
+      <div class="settings-section">
+        <h3>Environments</h3>
+        <div class="section-description">
+          <p>
+            One production host, and every non-production host that mirrors it — dev, staging, QA —
+            separated by commas. The banner appears on all of them, and switching moves you between
+            any two hosts in the group.
+          </p>
+          <p>
+            Enter hostnames, not full URLs — a scheme, port or path is stripped automatically, so
+            <code>https://app.example.com/login</code> is stored as <code>app.example.com</code>.
+          </p>
+          <p>
+            A <code>*</code> wildcard stands for exactly one label, so
+            <code>*.example.com</code> matches <code>app.example.com</code> but not
+            <code>example.com</code> or <code>a.b.example.com</code> — use
+            <code>*.*.example.com</code> for two levels. Every host in a group must contain the same
+            number of wildcards, so that whatever a wildcard matched is carried over when switching.
+          </p>
+          <ul>
+            <li>
+              <code>example.com</code> &rarr; <code>dev.example.com, staging.example.com</code>
+            </li>
+            <li><code>*.production.example.com</code> &rarr; <code>*.dev.example.com</code></li>
+          </ul>
         </div>
-        <div id="localStorageKeysContainer"></div>
-        <button id="addKeyButton" class="add-key">Add Key to Track</button>
+        <div class="environments">
+          <div class="environments-header">
+            <div class="env-field-header">Production host</div>
+            <div class="env-field-header">Non-production hosts, comma separated</div>
+          </div>
+          <div id="environmentGroups"></div>
+          <button id="addGroupButton" class="add-group" type="button">Add environment group</button>
+        </div>
       </div>
-    </div>
 
-    <div class="settings-section">
-      <h3>Banner Settings</h3>
-      <div class="banner-settings">
-        <div class="position-setting">
-          <label for="bannerPosition">Banner Position:</label>
-          <select id="bannerPosition">
-            <option value="top">Top of the page</option>
-            <option value="bottom">Bottom of the page</option>
-          </select>
+      <div class="settings-section">
+        <h3>Local Storage Variables Tracking</h3>
+        <div class="section-description">
+          <p>
+            Watch specific localStorage keys of the visited page and show them in the banner, so a
+            feature flag left switched on is visible at a glance.
+          </p>
+          <p>
+            A key is listed whenever it is present. Values of <code>1</code> or <code>true</code>
+            are highlighted as switched on; anything else is shown dimmed.
+          </p>
+          <p>Example keys to track:</p>
+          <ul>
+            <li><code>bestcompany-production-enabled</code></li>
+            <li><code>use-prod-database</code></li>
+          </ul>
         </div>
-        <div class="size-settings">
-          <div class="size-option">
-            <label for="prodSize">Production Banner Size:</label>
-            <select id="prodSize">
-              <option value="50">50px</option>
-              <option value="100">100px</option>
-              <option value="150">150px</option>
+        <div class="local-storage-keys">
+          <div class="local-storage-header">
+            <div class="key-field-header">Key Name</div>
+          </div>
+          <div id="localStorageKeysContainer"></div>
+          <button id="addKeyButton" class="add-key" type="button">Add key to track</button>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h3>Banner Settings</h3>
+        <div class="banner-settings">
+          <div class="position-setting">
+            <label for="bannerPosition">Banner Position:</label>
+            <select id="bannerPosition">
+              <option value="top">Top of the page</option>
+              <option value="bottom">Bottom of the page</option>
             </select>
           </div>
-          <div class="size-option">
-            <label for="devSize">Development Banner Size:</label>
-            <select id="devSize">
-              <option value="50">50px</option>
-              <option value="100">100px</option>
-              <option value="150">150px</option>
-            </select>
+          <div class="size-settings">
+            <div class="size-option">
+              <label for="prodSize">Production Banner Size:</label>
+              <!-- Options are filled in from BANNER_SIZES by options.ts. -->
+              <select id="prodSize"></select>
+            </div>
+            <div class="size-option">
+              <label for="devSize">Development Banner Size:</label>
+              <select id="devSize"></select>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <div class="actions">
-      <button id="saveButton" class="primary-button">Save Settings</button>
+      <div class="settings-section">
+        <h3>Import / Export</h3>
+        <div class="section-description">
+          <p>
+            Settings follow your browser profile automatically. Use this to hand a configuration to
+            someone else, or to move one between profiles by hand.
+          </p>
+          <p>
+            Export writes the current configuration below; Download file saves it as JSON. Load file
+            reads a file into the box without applying it, so you can look first — Import is what
+            replaces the configuration. Imported data is validated exactly like the form above, and
+            anything unusable is reported rather than quietly dropped. Whether the extension is
+            switched on is not part of the payload.
+          </p>
+        </div>
+        <textarea
+          id="transferArea"
+          class="transfer-area"
+          rows="8"
+          spellcheck="false"
+          aria-label="Settings as JSON"
+          placeholder="Press Export to write the current configuration here, or paste one to import."
+        ></textarea>
+        <div class="transfer-actions">
+          <button id="exportButton" type="button" class="add-key">Export</button>
+          <button id="downloadButton" type="button" class="add-key">Download file</button>
+          <button id="loadFileButton" type="button" class="add-key">Load file</button>
+          <button id="importButton" type="button" class="primary-button">Import</button>
+          <input id="fileInput" type="file" accept="application/json,.json" hidden />
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="saveButton" class="primary-button">Save Settings</button>
+      </div>
     </div>
-  </div>
-  <script src="../js/options.js"></script>
-</body>
-</html> 
+    <script src="../js/options.js"></script>
+  </body>
+</html>
