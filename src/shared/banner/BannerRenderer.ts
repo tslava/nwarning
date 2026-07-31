@@ -70,7 +70,7 @@ const createCheckIcon = (): SVGElement => createIcon([['path', { d: 'M20 6L9 17l
 
 const createCloseIcon = (): SVGElement => createIcon([['path', { d: 'M18 6L6 18M6 6l12 12' }]]);
 
-const COPY_LABEL = 'Copy URL query string';
+const COPY_LABEL = 'Copy URL parameters';
 const DISMISS_LABEL = 'Hide the banner until this page is reloaded';
 const FEEDBACK_MS = 2000;
 
@@ -263,16 +263,16 @@ export class BannerRenderer {
   }
 
   private async handleCopy(button: HTMLButtonElement): Promise<void> {
-    const queryString = window.location.search;
-    if (!queryString) {
-      this.showFeedback(button, null, 'No query string to copy');
-      this.showFlash('No query string on this page', 'warn');
+    const parameters = currentUrlParameters();
+    if (!parameters) {
+      this.showFeedback(button, null, 'No parameters to copy');
+      this.showFlash('No parameters on this page', 'warn');
       return;
     }
 
-    const copied = await copyText(queryString);
+    const copied = await copyText(parameters);
     this.showFeedback(button, copied ? createCheckIcon() : null, copied ? 'Copied' : 'Copy failed');
-    this.showFlash(copied ? 'Query string copied' : 'Copy failed', copied ? 'ok' : 'warn');
+    this.showFlash(copied ? 'Parameters copied' : 'Copy failed', copied ? 'ok' : 'warn');
   }
 
   private showFeedback(button: HTMLButtonElement, icon: SVGElement | null, label: string): void {
@@ -394,6 +394,28 @@ export class BannerRenderer {
   private readonly onMenuKeydown = (event: KeyboardEvent): void => {
     if (event.key === 'Escape') this.closeMenu?.();
   };
+}
+
+/**
+ * The parameter portion of the current URL, as the address bar shows it.
+ *
+ * Not simply `location.search`: plenty of front ends keep filter state in the
+ * hash — `/devices/incidents-history#?limit=20&offset=0` — where `search` is empty
+ * while the address bar plainly shows parameters. Reading only `search` there
+ * reports "nothing to copy" about a URL full of parameters.
+ *
+ * When the whole hash is a query the leading `#` is kept, so the copied text can
+ * be pasted straight after a path and reproduce the same view. When the hash also
+ * carries a route, only the query part is returned.
+ */
+export function currentUrlParameters(location: Location = window.location): string {
+  if (location.search) return location.search;
+
+  const hash = location.hash;
+  if (hash.startsWith('#?')) return hash;
+
+  const queryStart = hash.indexOf('?');
+  return queryStart === -1 ? '' : hash.slice(queryStart);
 }
 
 /**

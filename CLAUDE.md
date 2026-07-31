@@ -175,6 +175,13 @@ attribute values.
 
 ### Copying
 
+What counts as "the parameters" is `currentUrlParameters()`, not `location.search`.
+Front ends commonly keep filter state in the hash —
+`/devices/incidents-history#?limit=20&offset=0` — where `search` is empty while the
+address bar plainly shows parameters, so reading `search` alone reported "nothing to
+copy" about a URL full of them. When the whole hash is a query the leading `#` is
+kept so the copied text pastes back and reproduces the view.
+
 Copy goes through a hidden textarea and `document.execCommand('copy')`, with
 `navigator.clipboard.writeText` only as a second attempt. That order is not
 historical clumsiness: in a content script's isolated world `writeText` **resolves
