@@ -130,12 +130,14 @@ describe('StorageMonitor.toggle', () => {
     expect(localStorage.getItem('flag')).toBe('FALSE');
   });
 
-  it('turns a flag on again after it was removed', async () => {
+  it('turns a flag on again after it has gone missing', async () => {
     const { monitor, last } = createMonitor();
     localStorage.setItem('flag', '1');
     monitor.setKeys(['flag']);
-    await monitor.remove('flag');
+    await monitor.toggle('flag');
 
+    // Deleted from devtools, say, while the chip was on screen.
+    localStorage.removeItem('flag');
     await monitor.toggle('flag');
 
     expect(localStorage.getItem('flag')).toBe('1');
@@ -143,6 +145,16 @@ describe('StorageMonitor.toggle', () => {
     expect(last()).toEqual([
       { key: 'flag', value: '1', isWarning: true, pendingReload: false, nextValue: '0' },
     ]);
+  });
+
+  it('reports whether it wrote anything, since a new tab hangs off that', async () => {
+    const { monitor } = createMonitor();
+    localStorage.setItem('flag', '1');
+    localStorage.setItem('other', 'staging');
+    monitor.setKeys(['flag', 'other']);
+
+    expect(await monitor.toggle('flag')).toBe(true);
+    expect(await monitor.toggle('other')).toBe(false);
   });
 
   it('leaves a value that is not a plain on/off flag untouched', async () => {
@@ -173,72 +185,28 @@ describe('StorageMonitor.toggle', () => {
   });
 });
 
-describe('StorageMonitor.remove', () => {
-  it('removes the key from the page and reports that a reload is needed', async () => {
-    const { monitor, last } = createMonitor();
-    localStorage.setItem('use-production-data', '1');
-    monitor.setKeys(['use-production-data']);
-    await monitor.refresh();
-
-    await monitor.remove('use-production-data');
-
-    expect(localStorage.getItem('use-production-data')).toBeNull();
-    expect(last()).toEqual([
-      {
-        key: 'use-production-data',
-        value: null,
-        isWarning: false,
-        pendingReload: true,
-        nextValue: '1',
-      },
-    ]);
-  });
-
-  it('keeps saying a reload is needed on later refreshes', async () => {
+describe('StorageMonitor tracking outside changes', () => {
+  it('reports a key that has gone missing since it was changed here', async () => {
     const { monitor, last } = createMonitor();
     localStorage.setItem('flag', '1');
     monitor.setKeys(['flag']);
+    await monitor.toggle('flag');
 
-    await monitor.remove('flag');
+    // Devtools, another tab or the app itself can still delete the key. The chip
+    // has to stay, because the running page is on neither value.
+    localStorage.removeItem('flag');
     await monitor.refresh();
 
-    // The running page still holds the old value, so the chip must not vanish.
     expect(last()).toEqual([
       { key: 'flag', value: null, isWarning: false, pendingReload: true, nextValue: '1' },
     ]);
-  });
-
-  it('marks a value written again after a removal as still pending', async () => {
-    const { monitor, last } = createMonitor();
-    localStorage.setItem('flag', '1');
-    monitor.setKeys(['flag']);
-    await monitor.remove('flag');
-
-    localStorage.setItem('flag', '0');
-    await monitor.refresh();
-
-    expect(last()).toEqual([
-      { key: 'flag', value: '0', isWarning: false, pendingReload: true, nextValue: '1' },
-    ]);
-  });
-
-  it('removes a value it refuses to flip', async () => {
-    const { monitor } = createMonitor();
-    localStorage.setItem('flag', 'staging');
-    monitor.setKeys(['flag']);
-
-    // `×` is the way out of an unrecognised value: it is unambiguous about the
-    // value going away, which a click on the chip is not.
-    await monitor.remove('flag');
-
-    expect(localStorage.getItem('flag')).toBeNull();
   });
 
   it('forgets the pending state when the key stops being tracked', async () => {
     const { monitor, last } = createMonitor();
     localStorage.setItem('flag', '1');
     monitor.setKeys(['flag']);
-    await monitor.remove('flag');
+    await monitor.toggle('flag');
 
     monitor.setKeys(['other']);
     await monitor.refresh();

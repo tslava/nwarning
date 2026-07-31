@@ -160,19 +160,29 @@ An absent key renders nothing: the app then falls back to how it was built, whic
 means the effective environment is the page's own, and the banner already says
 that.
 
-The `×` removes the key rather than writing `0`, because these flags treat any
-non-empty value as an override — removal is the only way back to the default. A
-removed chip is neutral, not the "off" green: the app is back on whatever it was
-built with, which is not a statement about the flag's value.
+**A chip is a switch and nothing else.** A click flips the flag *and* opens the same
+URL in a new tab, because the flip on its own does nothing to the page in front of
+you — these flags are read once at startup, so a fresh load is what applies one. The
+clicked tab is deliberately left alone: it is the before to the new tab's after, and
+nothing the user was looking at is thrown away. `window.open` stays in `content.ts`
+for the same reason switching does, the click's user gesture, and a refused popup is
+reported in the banner rather than only failing.
 
-**A click on the chip flips the flag.** Only `1`/`0` and `true`/`false` are flipped,
-case preserved; `nextFlagValue` returns `null` for anything else and the chip says
-why instead of writing. That refusal is the point: `staging`, `2` or a JSON blob is
-somebody's configuration, one click must not destroy it, and localStorage keeps no
-history to undo from. `×` stays the way out of such a value, where the user is
-plainly asking for it to go. `looksEnabled` and `nextFlagValue` live in one file
-because they must agree — an unrecognised value must never read as on, or the
-colour and the flip would contradict each other.
+Only `1`/`0` and `true`/`false` are flipped, case preserved; `nextFlagValue` returns
+`null` for anything else and the chip says why instead of writing. That refusal is
+the point: `staging`, `2` or a JSON blob is somebody's configuration, one click must
+not destroy it, and localStorage keeps no history to undo from. `looksEnabled` and
+`nextFlagValue` live in one file because they must agree — an unrecognised value must
+never read as on, or the colour and the flip would contradict each other.
+
+There is **no remove control**, and `PlatformAPI` has no removal method: the two
+values a flag flips between are the entire vocabulary the banner writes. That does
+give something up, since most such flags treat any non-empty value as an override,
+so `0` is not always the app's built-in default — the call was the author's, on the
+grounds that the chip should read as a switch and `0`/`1` covers the apps this is
+used with. A key can still go missing from devtools or another tab, so the absent
+chip stays: it is neutral, not the "off" green, because the app is back on whatever
+it was built with and that is not a statement about the flag's value.
 
 The refusal is enforced in `StorageMonitor.toggle` as well as in the chip, and the
 value is re-read there: what the chip was built from can be stale by the time it is

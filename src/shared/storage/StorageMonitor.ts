@@ -64,27 +64,19 @@ export class StorageMonitor {
    * the chip presents — checked again here because the value the chip was built
    * from can be stale by the time it is clicked, and this must never overwrite
    * something it has not just looked at.
+   *
+   * Resolves to whether anything was written. The caller opens a fresh tab on the
+   * strength of that, so a refusal must be distinguishable from a change.
    */
-  async toggle(key: string): Promise<void> {
+  async toggle(key: string): Promise<boolean> {
     const current = await this.read(key);
     const next = nextFlagValue(current);
-    if (next === null) return;
+    if (next === null) return false;
 
     this.rememberBaseline(key, current);
     await platform.setLocalStorageValue(key, next);
     await this.refresh();
-  }
-
-  /**
-   * Remove a tracked key from the page's localStorage. Reverting to the app's
-   * built-in default is the one thing that cannot be expressed as a value —
-   * these flags treat any non-empty value as an override — so it needs its own
-   * action rather than writing `0`.
-   */
-  async remove(key: string): Promise<void> {
-    this.rememberBaseline(key, await this.read(key));
-    await platform.removeLocalStorageValue(key);
-    await this.refresh();
+    return true;
   }
 
   async refresh(): Promise<void> {

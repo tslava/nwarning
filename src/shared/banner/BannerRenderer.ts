@@ -18,8 +18,6 @@ export interface BannerConfig {
   onDismiss: () => void;
   /** Flip a tracked localStorage flag between its on and off values. */
   onToggleKey: (key: string) => void;
-  /** Remove a tracked localStorage key from the page. */
-  onResetKey: (key: string) => void;
 }
 
 export interface BannerElements {
@@ -157,12 +155,13 @@ export class BannerRenderer {
   }
 
   /**
-   * A chip carries the flag's value and is itself the switch. It stays a `span`
-   * because `×` is a button of its own and nesting buttons is not valid markup.
+   * A chip is the switch for its flag, and nothing else. There is no remove
+   * control: the two values a flag flips between are the whole vocabulary the
+   * banner writes.
    *
-   * A removed key keeps the neutral look rather than taking the "off" green: the
-   * app is back on however it was built, which is not the same statement as the
-   * flag being off, and the colours only speak about values.
+   * A key that has gone missing keeps the neutral look rather than taking the
+   * "off" green: the app is back on however it was built, which is not the same
+   * statement as the flag being off, and the colours only speak about values.
    */
   private createChip(warning: Warning): HTMLElement {
     const chip = document.createElement('span');
@@ -172,14 +171,14 @@ export class BannerRenderer {
     );
 
     chip.appendChild(this.createToggleButton(warning));
-    // Nothing to remove once it is gone, and the chip is only still here to say a
-    // reload is outstanding.
-    if (warning.value !== null) chip.appendChild(this.createResetButton(warning.key));
     return chip;
   }
 
   /**
-   * Clicking the chip flips the flag, which is what these flags exist for.
+   * Clicking the chip flips the flag and opens this page again in a new tab, which
+   * is the pair of actions that actually gets you anywhere: the app read the flag
+   * at startup, so a fresh load is what applies it. This tab is left alone on
+   * purpose, so the two are there to compare.
    *
    * A value that is not a plain on/off flag is not flipped: `staging`, `2` or a
    * JSON blob is real configuration, one click must not overwrite it, and there is
@@ -206,11 +205,11 @@ export class BannerRenderer {
       button.appendChild(note);
     }
 
-    const state = warning.value === null ? `${warning.key} is removed` : text.textContent;
+    const state = warning.value === null ? `${warning.key} is gone` : text.textContent;
     const action =
       warning.nextValue === null
-        ? `${warning.key} is not 0/1, so clicking leaves it alone — use × to fall back to the app default`
-        : `Set ${warning.key} to ${warning.nextValue} — the page reads it at startup, so reload to apply`;
+        ? `${warning.key} is not 0/1, so clicking leaves it alone`
+        : `Set ${warning.key} to ${warning.nextValue} and open this page in a new tab, where the app will read it — this tab keeps the value it started with`;
 
     button.title = action;
     button.setAttribute('aria-label', `${state}. ${action}`);
@@ -219,7 +218,7 @@ export class BannerRenderer {
       button.classList.add('is-locked');
       button.setAttribute('aria-disabled', 'true');
       button.addEventListener('click', () =>
-        this.showFlash(`${warning.key} is not 0/1 — use × instead`, 'warn'),
+        this.showFlash(`${warning.key} is not 0/1 — left as it is`, 'warn'),
       );
       return button;
     }
@@ -228,16 +227,13 @@ export class BannerRenderer {
     return button;
   }
 
-  private createResetButton(key: string): HTMLButtonElement {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'tracked-flag-reset';
-    button.textContent = '\u00d7';
-    const label = `Remove ${key} and fall back to the app default (reload to apply)`;
-    button.title = label;
-    button.setAttribute('aria-label', label);
-    button.addEventListener('click', () => this.config.onResetKey(key));
-    return button;
+  /**
+   * Say something in the banner from outside the renderer. The orchestrator needs
+   * it for outcomes it alone can see \u2014 a new tab the browser refused to open \u2014 and
+   * those have to be visible here rather than only in the console.
+   */
+  showMessage(message: string, kind: 'ok' | 'warn'): void {
+    this.showFlash(message, kind);
   }
 
   destroy(): void {

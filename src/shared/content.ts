@@ -94,8 +94,7 @@ class EnvironmentBanner {
       targets: this.switcher?.resolveTargets() ?? [],
       onSwitch: (target) => this.openTarget(target),
       onDismiss: () => this.dismiss(),
-      onToggleKey: (key) => void this.storageMonitor.toggle(key),
-      onResetKey: (key) => void this.storageMonitor.remove(key),
+      onToggleKey: (key) => void this.flipFlag(key),
     });
 
     const elements = this.renderer.create();
@@ -126,6 +125,26 @@ class EnvironmentBanner {
   private onWarnings(warnings: Warning[]): void {
     this.warnings = warnings;
     this.renderer?.displayWarnings(warnings);
+  }
+
+  /**
+   * Flip a tracked flag and open this page again, so the app actually reads the new
+   * value — it reads these flags once at startup, which is why the flip alone does
+   * nothing to the page in front of you. This tab is deliberately left as it was:
+   * it is the before to the new tab's after, and nothing the user was looking at
+   * gets thrown away.
+   *
+   * The write is awaited first. localStorage is shared with the new tab, but only
+   * values already stored when it starts loading are values it can read.
+   */
+  private async flipFlag(key: string): Promise<void> {
+    if (!(await this.storageMonitor.toggle(key))) return;
+
+    // A blocked popup has to be visible: the flag did change, and a banner that
+    // showed nothing would look like the click had failed outright.
+    if (!window.open(window.location.href, '_blank')) {
+      this.renderer?.showMessage('Flag changed — reload to apply', 'warn');
+    }
   }
 
   /** Opened from the banner, where a real user gesture exists. */

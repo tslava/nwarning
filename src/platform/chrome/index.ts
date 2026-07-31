@@ -88,14 +88,6 @@ const chromePlatform: PlatformAPI = {
     }
   },
 
-  removeLocalStorageValue: async (key) => {
-    try {
-      localStorage.removeItem(key);
-    } catch {
-      // Sandboxed or storage-partitioned contexts can throw on access.
-    }
-  },
-
   watchLocalStorage: (onChange) => {
     // Fires for writes made by other tabs of the same origin.
     window.addEventListener('storage', (event) => {
