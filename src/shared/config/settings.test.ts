@@ -9,8 +9,8 @@ describe('SettingsManager.load', () => {
     expect(settings).toEqual({
       extensionEnabled: true,
       groups: [],
-      prodSize: 50,
-      devSize: 50,
+      prodSize: 30,
+      devSize: 30,
       bannerPosition: 'top',
       localStorageKeys: [],
     });
@@ -28,7 +28,8 @@ describe('SettingsManager.load', () => {
     const storage = new FakeStorage({ prodSize: 9000, devSize: 'x', bannerPosition: 'middle' });
     const settings = await new SettingsManager(storage).load();
     expect(settings.prodSize).toBe(200);
-    expect(settings.devSize).toBe(50);
+    // 'x' is not a number, so the default stands in.
+    expect(settings.devSize).toBe(30);
     expect(settings.bannerPosition).toBe('top');
   });
 
