@@ -17,6 +17,23 @@ function mountPage(): void {
   document.body.innerHTML = body[1].replace(/<script[\s\S]*?<\/script>/gi, '');
 }
 
+describe('extension pages', () => {
+  // Nothing serves a charset header for a chrome-extension: or moz-extension: URL,
+  // so a page without this declaration is decoded as Latin-1 and every dash in the
+  // copy renders as mojibake. jsdom reads the file as UTF-8 and cannot see that, so
+  // this checks the declaration itself.
+  it.each(['options.html', 'popup.html'])('%s declares UTF-8', (page) => {
+    const html = readFileSync(resolve(process.cwd(), 'src/shared/html', page), 'utf8');
+    expect(html).toMatch(/<meta\s+charset=["']utf-8["']/i);
+  });
+
+  it('keeps the transfer buttons on one set of metrics', () => {
+    // They used to borrow `.add-key`, which carries a margin only meant for the key
+    // list, and `.primary-button`, which is the larger page-level Save button.
+    expect(OPTIONS_HTML).not.toMatch(/class="add-key"[^>]*>(Export|Download file|Load file)/);
+  });
+});
+
 function fakePermissions(hasHostAccess: boolean, granted = true): PermissionsPort {
   return {
     hasHostAccess: vi.fn().mockResolvedValue(hasHostAccess),

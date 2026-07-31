@@ -197,9 +197,46 @@ h3 {
   box-shadow: 0 0 0 2px rgba(23, 180, 23, 0.1);
 }
 
+/*
+ * One control group, so one set of metrics. These buttons borrowed `.add-key`,
+ * which carries a `margin-top` that only makes sense under a list of key rows, and
+ * Import borrowed `.primary-button`, which is a page-level Save button and larger —
+ * so the row came out misaligned and mismatched.
+ *
+ * Import stays the filled one because it is the button that replaces your
+ * configuration; the other three only move text around. That distinction used to
+ * be carried by it accidentally being bigger.
+ */
 .transfer-actions {
   display: flex;
+  align-items: center;
   gap: 10px;
+}
+
+.transfer-actions button {
+  margin-top: 0;
+  padding: 10px 16px;
+  /* Transparent rather than none, so the filled button is exactly as tall as the
+     outlined ones instead of 2px shorter. */
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font-size: 14px;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.transfer-actions .secondary-button {
+  border-color: #ccc;
+  background-color: #fff;
+  color: #333;
+  transition:
+    background-color 0.2s,
+    border-color 0.2s;
+}
+
+.transfer-actions .secondary-button:hover {
+  border-color: #999;
+  background-color: #f1f3f5;
 }
 
 .banner-settings {
