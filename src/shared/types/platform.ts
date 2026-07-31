@@ -60,6 +60,9 @@ export interface PlatformAPI {
   /** Observe writes to the page's localStorage (content script context only). */
   watchLocalStorage: (onChange: () => void) => void;
 
+  /** Write a key in the *page's* localStorage (content script context only). */
+  setLocalStorageValue: (key: string, value: string) => Promise<void>;
+
   /** Remove a key from the *page's* localStorage (content script context only). */
   removeLocalStorageValue: (key: string) => Promise<void>;
 }

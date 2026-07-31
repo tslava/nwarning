@@ -157,6 +157,20 @@ const firefoxPlatform: PlatformAPI = {
     return injected ?? readDirectly(keys);
   },
 
+  setLocalStorageValue: async (key, value) => {
+    // Same belt and braces as the removal below. Both operands are extension
+    // data — the key comes from settings, the value from `nextFlagValue` — but
+    // they still go through JSON.stringify rather than into the source as text.
+    runInPage(
+      `try { localStorage.setItem(${JSON.stringify(key)}, ${JSON.stringify(value)}); } catch {}`,
+    );
+    try {
+      localStorage.setItem(key, value);
+    } catch {
+      // Nothing more to try.
+    }
+  },
+
   removeLocalStorageValue: async (key) => {
     // Mirrors the read path: the injected removal is what counts if the content
     // script does not share the page's storage, and the direct one covers the

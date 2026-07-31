@@ -79,6 +79,15 @@ const chromePlatform: PlatformAPI = {
     return result;
   },
 
+  setLocalStorageValue: async (key, value) => {
+    try {
+      localStorage.setItem(key, value);
+    } catch {
+      // Sandboxed or storage-partitioned contexts can throw on access, and a
+      // full quota throws too.
+    }
+  },
+
   removeLocalStorageValue: async (key) => {
     try {
       localStorage.removeItem(key);

@@ -94,6 +94,7 @@ class EnvironmentBanner {
       targets: this.switcher?.resolveTargets() ?? [],
       onSwitch: (target) => this.openTarget(target),
       onDismiss: () => this.dismiss(),
+      onToggleKey: (key) => void this.storageMonitor.toggle(key),
       onResetKey: (key) => void this.storageMonitor.remove(key),
     });
 

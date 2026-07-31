@@ -34,7 +34,7 @@ describe('StorageMonitor.refresh', () => {
     await monitor.refresh();
 
     expect(last()).toEqual([
-      { key: 'present', value: 'x', isWarning: false, pendingReload: false },
+      { key: 'present', value: 'x', isWarning: false, pendingReload: false, nextValue: null },
     ]);
   });
 
@@ -83,6 +83,96 @@ describe('StorageMonitor.refresh', () => {
   });
 });
 
+describe('StorageMonitor.toggle', () => {
+  it('flips the stored value and says a reload is needed', async () => {
+    const { monitor, last } = createMonitor();
+    localStorage.setItem('use-production-data', '1');
+    monitor.setKeys(['use-production-data']);
+    await monitor.refresh();
+
+    await monitor.toggle('use-production-data');
+
+    expect(localStorage.getItem('use-production-data')).toBe('0');
+    expect(last()).toEqual([
+      {
+        key: 'use-production-data',
+        value: '0',
+        isWarning: false,
+        pendingReload: true,
+        nextValue: '1',
+      },
+    ]);
+  });
+
+  it('drops the reload note once the flag is back where the page found it', async () => {
+    const { monitor, last } = createMonitor();
+    localStorage.setItem('flag', '1');
+    monitor.setKeys(['flag']);
+
+    await monitor.toggle('flag');
+    await monitor.toggle('flag');
+
+    // The page read '1' at startup and '1' is what is stored again, so there is
+    // nothing left to reload for.
+    expect(localStorage.getItem('flag')).toBe('1');
+    expect(last()).toEqual([
+      { key: 'flag', value: '1', isWarning: true, pendingReload: false, nextValue: '0' },
+    ]);
+  });
+
+  it('stays in the vocabulary it found', async () => {
+    const { monitor } = createMonitor();
+    localStorage.setItem('flag', 'TRUE');
+    monitor.setKeys(['flag']);
+
+    await monitor.toggle('flag');
+
+    expect(localStorage.getItem('flag')).toBe('FALSE');
+  });
+
+  it('turns a flag on again after it was removed', async () => {
+    const { monitor, last } = createMonitor();
+    localStorage.setItem('flag', '1');
+    monitor.setKeys(['flag']);
+    await monitor.remove('flag');
+
+    await monitor.toggle('flag');
+
+    expect(localStorage.getItem('flag')).toBe('1');
+    // Back to the value the page loaded with, so the note goes with it.
+    expect(last()).toEqual([
+      { key: 'flag', value: '1', isWarning: true, pendingReload: false, nextValue: '0' },
+    ]);
+  });
+
+  it('leaves a value that is not a plain on/off flag untouched', async () => {
+    const { monitor, last } = createMonitor();
+    localStorage.setItem('flag', 'staging');
+    monitor.setKeys(['flag']);
+    await monitor.refresh();
+
+    await monitor.toggle('flag');
+
+    expect(localStorage.getItem('flag')).toBe('staging');
+    expect(last()).toEqual([
+      { key: 'flag', value: 'staging', isWarning: false, pendingReload: false, nextValue: null },
+    ]);
+  });
+
+  it('reads the value again rather than trusting what the chip was built from', async () => {
+    const { monitor } = createMonitor();
+    localStorage.setItem('flag', '1');
+    monitor.setKeys(['flag']);
+    await monitor.refresh();
+
+    // The page itself changed the flag after the chip was rendered.
+    localStorage.setItem('flag', 'staging');
+    await monitor.toggle('flag');
+
+    expect(localStorage.getItem('flag')).toBe('staging');
+  });
+});
+
 describe('StorageMonitor.remove', () => {
   it('removes the key from the page and reports that a reload is needed', async () => {
     const { monitor, last } = createMonitor();
@@ -94,7 +184,13 @@ describe('StorageMonitor.remove', () => {
 
     expect(localStorage.getItem('use-production-data')).toBeNull();
     expect(last()).toEqual([
-      { key: 'use-production-data', value: '', isWarning: false, pendingReload: true },
+      {
+        key: 'use-production-data',
+        value: null,
+        isWarning: false,
+        pendingReload: true,
+        nextValue: '1',
+      },
     ]);
   });
 
@@ -107,7 +203,9 @@ describe('StorageMonitor.remove', () => {
     await monitor.refresh();
 
     // The running page still holds the old value, so the chip must not vanish.
-    expect(last()).toEqual([{ key: 'flag', value: '', isWarning: false, pendingReload: true }]);
+    expect(last()).toEqual([
+      { key: 'flag', value: null, isWarning: false, pendingReload: true, nextValue: '1' },
+    ]);
   });
 
   it('marks a value written again after a removal as still pending', async () => {
@@ -119,7 +217,21 @@ describe('StorageMonitor.remove', () => {
     localStorage.setItem('flag', '0');
     await monitor.refresh();
 
-    expect(last()).toEqual([{ key: 'flag', value: '0', isWarning: false, pendingReload: true }]);
+    expect(last()).toEqual([
+      { key: 'flag', value: '0', isWarning: false, pendingReload: true, nextValue: '1' },
+    ]);
+  });
+
+  it('removes a value it refuses to flip', async () => {
+    const { monitor } = createMonitor();
+    localStorage.setItem('flag', 'staging');
+    monitor.setKeys(['flag']);
+
+    // `×` is the way out of an unrecognised value: it is unambiguous about the
+    // value going away, which a click on the chip is not.
+    await monitor.remove('flag');
+
+    expect(localStorage.getItem('flag')).toBeNull();
   });
 
   it('forgets the pending state when the key stops being tracked', async () => {
