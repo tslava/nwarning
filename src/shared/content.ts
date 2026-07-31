@@ -4,7 +4,6 @@ import { settings } from './config/settings';
 import type { Settings } from './config/schema';
 import { platform } from './platform';
 import { StorageMonitor, type Warning } from './storage/StorageMonitor';
-import type { ExtensionMessage, SwitchEnvironmentResponse } from './types/messages';
 import { matchEnvironment, type Environment, type EnvironmentMatch } from './utils/environment';
 
 /**
@@ -44,7 +43,6 @@ class EnvironmentBanner {
 
   constructor() {
     this.storageMonitor = new StorageMonitor((warnings) => this.onWarnings(warnings));
-    this.registerMessageHandler();
     // Settings changes are applied live, in every tab, without a reload.
     settings.onChange((next) => void this.apply(next));
     void this.start();
@@ -132,18 +130,6 @@ class EnvironmentBanner {
   /** Opened from the banner, where a real user gesture exists. */
   private openTarget(target: SwitchTarget): void {
     window.open(target.url, '_blank');
-  }
-
-  private registerMessageHandler(): void {
-    platform.onMessage.addListener((message: ExtensionMessage) => {
-      if (message.command !== 'switch-environment') return undefined;
-      // The keyboard shortcut has no user gesture here, so hand the URL back and
-      // let the background worker open it instead of being popup-blocked.
-      const response: SwitchEnvironmentResponse = {
-        targetUrl: this.switcher?.resolvePrimaryTarget()?.url ?? null,
-      };
-      return Promise.resolve(response);
-    });
   }
 }
 

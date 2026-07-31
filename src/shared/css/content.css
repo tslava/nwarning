@@ -115,6 +115,12 @@ html.banner-bottom {
   top: 100% !important;
 }
 
+/*
+ * Menu items sit on white, where the banner's accent colours are far too light to
+ * read as text — #17b417 on white is only 3.0:1. Stands get neutral dark text;
+ * production keeps a red, but a darker one that actually passes at 5.9:1, and
+ * stays bold so it remains the entry that catches the eye.
+ */
 #environment-banner .banner-switch-item {
   display: block !important;
   box-sizing: border-box !important;
@@ -123,10 +129,10 @@ html.banner-bottom {
   border: none !important;
   border-radius: 4px !important;
   background: none !important;
-  color: #17b417 !important;
+  color: #1f2937 !important;
   font-family: inherit !important;
   font-size: 13px !important;
-  font-weight: bold !important;
+  font-weight: normal !important;
   text-align: left !important;
   text-shadow: none !important;
   cursor: pointer !important;
@@ -136,7 +142,8 @@ html.banner-bottom {
 }
 
 #environment-banner .banner-switch-item.is-production-target {
-  color: #ff4444 !important;
+  color: #c62828 !important;
+  font-weight: bold !important;
 }
 
 #environment-banner .banner-switch-item:hover,

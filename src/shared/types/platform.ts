@@ -1,4 +1,4 @@
-import type { ExtensionMessage, MessageSender, TabInfo } from './messages';
+import type { ExtensionMessage, MessageSender } from './messages';
 
 /**
  * Host access, which Manifest V3 leaves to the user on Firefox. Chrome grants the
@@ -26,11 +26,8 @@ export interface PlatformAPI {
   /** Version from the manifest, so support questions start with a known build. */
   getVersion: () => string;
   permissions: PermissionsPort;
-  getCurrentTab: () => Promise<TabInfo | undefined>;
-  sendMessageToTab: (tabId: number, message: ExtensionMessage) => Promise<unknown>;
   /** Send to the extension's own pages and background worker. */
   sendMessage: (message: ExtensionMessage) => Promise<unknown>;
-  createTab: (options: { url: string; index?: number }) => Promise<void>;
 
   onMessage: {
     addListener: (
@@ -39,10 +36,6 @@ export interface PlatformAPI {
         sender: MessageSender,
       ) => void | Promise<unknown> | unknown,
     ) => void;
-  };
-
-  onCommand: {
-    addListener: (handler: (command: string) => void) => void;
   };
 
   /**

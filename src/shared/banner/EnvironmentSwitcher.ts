@@ -45,9 +45,4 @@ export class EnvironmentSwitcher {
 
     return targets;
   }
-
-  /** Target used by the keyboard shortcut: production, or the first stand. */
-  resolvePrimaryTarget(currentUrl: string = window.location.href): SwitchTarget | null {
-    return this.resolveTargets(currentUrl)[0] ?? null;
-  }
 }

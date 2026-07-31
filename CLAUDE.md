@@ -185,12 +185,17 @@ sibling stands. One target renders a plain button naming the hostname, several
 render a menu. Targets are named by hostname, not "Production"/"Development",
 because a group can hold several stands.
 
-The banner calls `window.open` directly, since a click carries a user gesture.
-The keyboard shortcut cannot: the content script resolves the target URL and
-returns it, and `background.ts` opens the tab. Do not move that back into the
-content script — the popup blocker swallows it. The shortcut uses
-`resolvePrimaryTarget()`, the first target, which is production whenever you are
-on a stand.
+Switching happens in the content script with `window.open`, which works because a
+click carries a user gesture. There are deliberately **no keyboard shortcuts**: a
+shortcut carries no gesture into the page, so it needed a round trip through the
+background worker to dodge the popup blocker, and with several stands it had to
+silently pick one. Removing it deleted that whole path — the `commands` manifest
+key, the tab plumbing in `PlatformAPI`, and the content script's inbound message
+handler. `background.ts` now exists only to badge tabs.
+
+Menu items sit on white, so they must not use the banner's accent colours as text:
+`#17b417` on white is 2.8:1. Stands are neutral dark, production is a darker red at
+5.6:1.
 
 ### Dismissal and the Badge
 
