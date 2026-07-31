@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { BannerRenderer } from './BannerRenderer';
+import { BannerRenderer, currentUrlParameters } from './BannerRenderer';
 import type { SwitchTarget } from './EnvironmentSwitcher';
 import type { Warning } from '../storage/StorageMonitor';
 
@@ -53,7 +53,7 @@ describe('BannerRenderer.create', () => {
     expect(banner.getAttribute('role')).toBe('region');
     expect(banner.getAttribute('aria-label')).toBe('Development environment banner');
     expect(banner.querySelector('.banner-icon-button')?.getAttribute('aria-label')).toBe(
-      'Copy URL query string',
+      'Copy URL parameters',
     );
   });
 
@@ -281,13 +281,29 @@ describe('BannerRenderer copy', () => {
     history.replaceState({}, '', '/');
   });
 
-  it('says so visibly when the page has no query string', async () => {
+  it('says so visibly when the page has no parameters', async () => {
     const { banner } = mountRenderer();
     await clickCopy(banner);
 
     // The old build only changed the title here, so most pages looked broken.
-    expect(flash(banner)?.textContent).toBe('No query string on this page');
+    expect(flash(banner)?.textContent).toBe('No parameters on this page');
     expect(flash(banner)?.className).toContain('is-warn');
+  });
+
+  it('copies parameters that live in the hash', async () => {
+    history.replaceState({}, '', '/devices/incidents-history#?limit=20&offset=0&owner=1');
+    let copied: string | undefined;
+    document.execCommand = vi.fn().mockImplementation(() => {
+      copied = document.querySelector<HTMLTextAreaElement>('textarea')?.value;
+      return true;
+    });
+
+    const { banner } = mountRenderer();
+    await clickCopy(banner);
+
+    // Reading only location.search reported "nothing to copy" about this URL.
+    expect(copied).toBe('#?limit=20&offset=0&owner=1');
+    expect(flash(banner)?.textContent).toBe('Parameters copied');
   });
 
   it('copies through the selection route, not the Clipboard API', async () => {
@@ -303,7 +319,7 @@ describe('BannerRenderer copy', () => {
     expect(execCommand).toHaveBeenCalledWith('copy');
     // writeText resolves even when the write is dropped, so it must not be first.
     expect(writeText).not.toHaveBeenCalled();
-    expect(flash(banner)?.textContent).toBe('Query string copied');
+    expect(flash(banner)?.textContent).toBe('Parameters copied');
     expect(flash(banner)?.className).toContain('is-ok');
   });
 
@@ -317,7 +333,7 @@ describe('BannerRenderer copy', () => {
     await clickCopy(banner);
 
     expect(writeText).toHaveBeenCalledWith('?probe=2');
-    expect(flash(banner)?.textContent).toBe('Query string copied');
+    expect(flash(banner)?.textContent).toBe('Parameters copied');
   });
 
   it('reports a failure visibly when both routes fail', async () => {
@@ -376,5 +392,34 @@ describe('BannerRenderer.destroy', () => {
     // The old implementation appended a <style> on every create and never
     // removed it, so repeated enable/disable cycles piled them up.
     expect(document.head.querySelectorAll('style')).toHaveLength(before);
+  });
+});
+
+describe('currentUrlParameters', () => {
+  function at(url: string): string {
+    return currentUrlParameters(new URL(url, 'https://example.com') as unknown as Location);
+  }
+
+  it('returns a plain query string', () => {
+    expect(at('/devices?page=2&filter=test')).toBe('?page=2&filter=test');
+  });
+
+  it('returns hash parameters, keeping the hash so they can be pasted back', () => {
+    expect(at('/devices/incidents-history#?limit=20&offset=0&owner=1&projects=525')).toBe(
+      '#?limit=20&offset=0&owner=1&projects=525',
+    );
+  });
+
+  it('returns only the query part when the hash also carries a route', () => {
+    expect(at('/#/devices?limit=20')).toBe('?limit=20');
+  });
+
+  it('prefers the search string when a URL somehow has both', () => {
+    expect(at('/devices?a=1#?b=2')).toBe('?a=1');
+  });
+
+  it('returns nothing when there are no parameters anywhere', () => {
+    expect(at('/devices')).toBe('');
+    expect(at('/devices#section')).toBe('');
   });
 });
