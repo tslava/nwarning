@@ -82,6 +82,8 @@ export class BannerRenderer {
   private trailingPanel: HTMLElement | null = null;
   private feedbackTimer: number | null = null;
   private closeMenu: (() => void) | null = null;
+  private flash: HTMLElement | null = null;
+  private flashTimer: number | null = null;
 
   constructor(private readonly config: BannerConfig) {}
 
@@ -104,6 +106,12 @@ export class BannerRenderer {
     );
     // The height is the one value the stylesheet cannot know up front.
     this.banner.style.setProperty('--banner-height', `${this.config.bannerSize}px`);
+
+    this.flash = document.createElement('span');
+    this.flash.className = 'banner-flash';
+    this.flash.setAttribute('role', 'status');
+    this.flash.setAttribute('aria-live', 'polite');
+    this.flash.hidden = true;
 
     this.trailingPanel = document.createElement('div');
     this.trailingPanel.className = 'banner-button-panel banner-trailing-panel';
@@ -181,6 +189,11 @@ export class BannerRenderer {
       clearTimeout(this.feedbackTimer);
       this.feedbackTimer = null;
     }
+    if (this.flashTimer !== null) {
+      clearTimeout(this.flashTimer);
+      this.flashTimer = null;
+    }
+    this.flash = null;
     // Drops the document-level menu listeners as a side effect.
     this.closeMenu?.();
     // The wrapper element itself is removed by the positioner, which owns
@@ -196,7 +209,30 @@ export class BannerRenderer {
     const panel = document.createElement('div');
     panel.className = 'banner-button-panel';
     panel.appendChild(this.createCopyButton());
+    if (this.flash) panel.appendChild(this.flash);
     return panel;
+  }
+
+  /**
+   * Every outcome of a copy has to be visible. Previously only success changed
+   * anything on screen — the icon — while "nothing to copy" and "copy failed"
+   * lived in the `title` attribute alone, so on the many pages without a query
+   * string the button appeared to do nothing at all.
+   */
+  private showFlash(message: string, kind: 'ok' | 'warn'): void {
+    if (!this.flash) return;
+    if (this.flashTimer !== null) clearTimeout(this.flashTimer);
+
+    this.flash.textContent = message;
+    this.flash.className = `banner-flash is-${kind}`;
+    this.flash.hidden = false;
+
+    this.flashTimer = window.setTimeout(() => {
+      this.flashTimer = null;
+      if (!this.flash) return;
+      this.flash.hidden = true;
+      this.flash.textContent = '';
+    }, FEEDBACK_MS);
   }
 
   /**
@@ -230,11 +266,13 @@ export class BannerRenderer {
     const queryString = window.location.search;
     if (!queryString) {
       this.showFeedback(button, null, 'No query string to copy');
+      this.showFlash('No query string on this page', 'warn');
       return;
     }
 
     const copied = await copyText(queryString);
     this.showFeedback(button, copied ? createCheckIcon() : null, copied ? 'Copied' : 'Copy failed');
+    this.showFlash(copied ? 'Query string copied' : 'Copy failed', copied ? 'ok' : 'warn');
   }
 
   private showFeedback(button: HTMLButtonElement, icon: SVGElement | null, label: string): void {
@@ -359,33 +397,55 @@ export class BannerRenderer {
 }
 
 /**
- * Clipboard write with a fallback: navigator.clipboard needs a secure context,
- * so plain-http development hosts still need the deprecated path.
+ * Copy through a hidden textarea and `execCommand`.
+ *
+ * This is the primary path, not a fallback, because in a content script's
+ * isolated world `navigator.clipboard.writeText` can resolve while the write is
+ * silently dropped — measured on a live page: the button reported success and the
+ * clipboard stayed empty. `execCommand` acts on the page's own document and
+ * selection inside the click, and returns a boolean that can be believed.
  */
+function copyViaSelection(text: string): boolean {
+  const area = document.createElement('textarea');
+  area.value = text;
+  area.setAttribute('readonly', '');
+  // On-screen but invisible and inert: fully off-screen elements are not reliably
+  // selectable, and pointer-events keeps it from swallowing the click.
+  area.style.cssText =
+    'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none;';
+
+  const selection = document.getSelection();
+  const previousRange = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+
+  document.body.appendChild(area);
+  try {
+    area.select();
+    area.setSelectionRange(0, text.length);
+    return document.execCommand('copy');
+  } catch {
+    return false;
+  } finally {
+    area.remove();
+    // Give the user back whatever they had selected before we hijacked it.
+    if (selection && previousRange) {
+      selection.removeAllRanges();
+      selection.addRange(previousRange);
+    }
+  }
+}
+
 async function copyText(text: string): Promise<boolean> {
+  if (copyViaSelection(text)) return true;
+
+  // Second attempt, for contexts where the selection route is unavailable.
   if (navigator.clipboard) {
     try {
       await navigator.clipboard.writeText(text);
       return true;
     } catch {
-      // Permission denied or insecure context; fall through to execCommand.
+      // Insecure context, denied permission, or no user activation left.
     }
   }
 
-  const input = document.createElement('textarea');
-  input.value = text;
-  input.setAttribute('readonly', '');
-  input.style.position = 'fixed';
-  input.style.top = '-1000px';
-  input.style.opacity = '0';
-  document.body.appendChild(input);
-
-  try {
-    input.select();
-    return document.execCommand('copy');
-  } catch {
-    return false;
-  } finally {
-    input.remove();
-  }
+  return false;
 }

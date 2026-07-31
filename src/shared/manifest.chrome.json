@@ -3,7 +3,7 @@
   "name": "Environment Switcher",
   "version": "0.0.0",
   "description": "Switch between development and production environments with visual indicators",
-  "permissions": ["storage"],
+  "permissions": ["storage", "clipboardWrite"],
   "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "js/background.js"

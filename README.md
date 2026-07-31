@@ -206,7 +206,8 @@ use.
 - **Red banner / `PROD` badge**: production
 - **Green banner / `DEV` badge**: a non-production stand
 - **Warning text**: monitored localStorage values, highlighted when switched on
-- **Copy button**: copies the current URL's query string
+- **Copy button**: copies the current URL's query string, and says what happened —
+  including when the page has no query string to copy
 - **Close button**: hides the banner until the page is reloaded
 
 The banner's switch control names the host it will take you to. With more than one

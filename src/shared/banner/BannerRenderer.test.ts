@@ -262,6 +262,112 @@ describe('BannerRenderer.displayWarnings', () => {
   });
 });
 
+describe('BannerRenderer copy', () => {
+  function flash(banner: HTMLElement): HTMLElement | null {
+    const element = banner.querySelector<HTMLElement>('.banner-flash');
+    return element && !element.hidden ? element : null;
+  }
+
+  function copyButton(banner: HTMLElement): HTMLButtonElement {
+    return banner.querySelector<HTMLButtonElement>('.banner-icon-button')!;
+  }
+
+  async function clickCopy(banner: HTMLElement): Promise<void> {
+    copyButton(banner).click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+
+  beforeEach(() => {
+    history.replaceState({}, '', '/');
+  });
+
+  it('says so visibly when the page has no query string', async () => {
+    const { banner } = mountRenderer();
+    await clickCopy(banner);
+
+    // The old build only changed the title here, so most pages looked broken.
+    expect(flash(banner)?.textContent).toBe('No query string on this page');
+    expect(flash(banner)?.className).toContain('is-warn');
+  });
+
+  it('copies through the selection route, not the Clipboard API', async () => {
+    history.replaceState({}, '', '/?probe=1');
+    const execCommand = vi.fn().mockReturnValue(true);
+    document.execCommand = execCommand;
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+
+    const { banner } = mountRenderer();
+    await clickCopy(banner);
+
+    expect(execCommand).toHaveBeenCalledWith('copy');
+    // writeText resolves even when the write is dropped, so it must not be first.
+    expect(writeText).not.toHaveBeenCalled();
+    expect(flash(banner)?.textContent).toBe('Query string copied');
+    expect(flash(banner)?.className).toContain('is-ok');
+  });
+
+  it('falls back to the Clipboard API when the selection route fails', async () => {
+    history.replaceState({}, '', '/?probe=2');
+    document.execCommand = vi.fn().mockReturnValue(false);
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+
+    const { banner } = mountRenderer();
+    await clickCopy(banner);
+
+    expect(writeText).toHaveBeenCalledWith('?probe=2');
+    expect(flash(banner)?.textContent).toBe('Query string copied');
+  });
+
+  it('reports a failure visibly when both routes fail', async () => {
+    history.replaceState({}, '', '/?probe=3');
+    document.execCommand = vi.fn().mockReturnValue(false);
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: vi.fn().mockRejectedValue(new Error('denied')) },
+      configurable: true,
+    });
+
+    const { banner } = mountRenderer();
+    await clickCopy(banner);
+
+    expect(flash(banner)?.textContent).toBe('Copy failed');
+    expect(flash(banner)?.className).toContain('is-warn');
+  });
+
+  it('copies the query string itself', async () => {
+    history.replaceState({}, '', '/?page=2&filter=test');
+    let copied: string | undefined;
+    document.execCommand = vi.fn().mockImplementation(() => {
+      copied = document.querySelector<HTMLTextAreaElement>('textarea')?.value;
+      return true;
+    });
+
+    const { banner } = mountRenderer();
+    await clickCopy(banner);
+
+    expect(copied).toBe('?page=2&filter=test');
+  });
+
+  it('leaves no textarea behind and restores the page selection', async () => {
+    history.replaceState({}, '', '/?probe=4');
+    const paragraph = document.createElement('p');
+    paragraph.textContent = 'user had this selected';
+    document.body.appendChild(paragraph);
+    const range = document.createRange();
+    range.selectNodeContents(paragraph);
+    getSelection()?.removeAllRanges();
+    getSelection()?.addRange(range);
+
+    document.execCommand = vi.fn().mockReturnValue(true);
+    const { banner } = mountRenderer();
+    await clickCopy(banner);
+
+    expect(document.querySelectorAll('textarea')).toHaveLength(0);
+    expect(getSelection()?.toString()).toBe('user had this selected');
+  });
+});
+
 describe('BannerRenderer.destroy', () => {
   it('injects no stylesheet that could be left behind', () => {
     const before = document.head.querySelectorAll('style').length;

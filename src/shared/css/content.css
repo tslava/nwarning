@@ -275,3 +275,29 @@ html.banner-bottom {
   outline: 2px solid currentColor !important;
   outline-offset: 1px !important;
 }
+
+/*
+ * Transient result of a copy. Every outcome shows one, including "nothing to
+ * copy": the icon swap alone was invisible on the pages that have no query
+ * string, which is most of them.
+ */
+#environment-banner .banner-flash {
+  flex: none !important;
+  padding: 3px 8px !important;
+  border-radius: 4px !important;
+  font-size: 12px !important;
+  font-weight: bold !important;
+  line-height: 1.2 !important;
+  white-space: nowrap !important;
+  text-shadow: none !important;
+}
+
+#environment-banner .banner-flash.is-ok {
+  background-color: #ffffff !important;
+  color: #1f2937 !important;
+}
+
+#environment-banner .banner-flash.is-warn {
+  background-color: #c62828 !important;
+  color: #ffffff !important;
+}

@@ -173,6 +173,26 @@ All banner styling is in `src/shared/css/content.css`, keyed off
 property. Do not inject `<style>` elements from JS, and do not style off inline
 attribute values.
 
+### Copying
+
+Copy goes through a hidden textarea and `document.execCommand('copy')`, with
+`navigator.clipboard.writeText` only as a second attempt. That order is not
+historical clumsiness: in a content script's isolated world `writeText` **resolves
+while the write is silently dropped**. Measured on a live page — the button reported
+success and a real paste came back empty. `execCommand` acts on the page's own
+document and returns a boolean that can be believed. Do not "modernise" this by
+putting the Clipboard API first.
+
+`clipboardWrite` is in both manifests for the same reason; Firefox requires it for
+`execCommand` from a content script, and neither browser shows a permission warning
+for it.
+
+Every copy outcome must be visible in the banner, not only in `title`: with only the
+icon changing, the many pages that have no query string looked like a dead button —
+which is exactly how it was reported.
+
+### Rendering
+
 There is no `innerHTML` anywhere in `src/`, deliberately: tracked localStorage
 values are page-controlled, and add-on reviewers flag innerHTML. Icons are built
 with `createElementNS`.
