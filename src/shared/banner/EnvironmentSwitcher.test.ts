@@ -104,30 +104,3 @@ describe('EnvironmentSwitcher.resolveTargets', () => {
     expect(target.url).toBe('https://localhost:8443/x');
   });
 });
-
-describe('EnvironmentSwitcher.resolvePrimaryTarget', () => {
-  it('is production when on a stand, so the shortcut is predictable', () => {
-    expect(
-      switcherFor('staging.example.com').resolvePrimaryTarget('https://staging.example.com/'),
-    ).toMatchObject({ hostname: 'app.example.com', isProduction: true });
-  });
-
-  it('is the first stand when on production', () => {
-    expect(
-      switcherFor('app.example.com').resolvePrimaryTarget('https://app.example.com/'),
-    ).toMatchObject({
-      hostname: 'dev.example.com',
-    });
-  });
-
-  it('is null when a wildcard cannot be carried across', () => {
-    const broken: EnvironmentGroup = {
-      production: 'example.com',
-      // Stored directly, bypassing validation, which would have rejected this.
-      development: ['*.dev.example.com'],
-    };
-    expect(
-      switcherFor('example.com', [broken]).resolvePrimaryTarget('https://example.com/'),
-    ).toBeNull();
-  });
-});

@@ -6,7 +6,7 @@ A browser extension that helps developers easily switch between production and d
 
 - 🚦 Clear visual indicators: red banner for production, green for everything else
 - 🏷️ `PROD` / `DEV` badge on the toolbar icon, visible even with the banner hidden
-- 🔄 Switch between any hosts in a group, by click or keyboard shortcut
+- 🔄 Switch between any hosts in a group from the banner
 - 🎯 One production host with as many dev, staging and QA stands as you need
 - 🙈 Hide the banner for a single page view without disabling anything
 - 🎨 Customizable banner size and position (top or bottom of the page)
@@ -208,16 +208,13 @@ use.
 - **Warning text**: monitored localStorage values, highlighted when switched on
 - **Copy button**: copies the current URL's query string
 - **Close button**: hides the banner until the page is reloaded
-- **Ctrl/Cmd+Shift+S**: opens the counterpart environment in a new tab
 
 The banner's switch control names the host it will take you to. With more than one
-possible target it becomes a menu — production is listed first when you are on a
-stand, so switching to production is always the top entry. The keyboard shortcut
-takes that same first target, which makes it predictable: from a stand it always
-goes to production.
+possible target it becomes a menu: from production it lists every stand, and from a
+stand it lists production first — marked in red — followed by the sibling stands, so
+hopping between stands works too.
 
-The path, query string and hash are preserved, and the new environment opens in a
-new tab.
+The path, query string and hash are preserved, and the target opens in a new tab.
 
 ### Hiding the banner temporarily
 

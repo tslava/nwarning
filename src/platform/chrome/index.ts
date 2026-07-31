@@ -44,28 +44,11 @@ const chromePlatform: PlatformAPI = {
     },
   },
 
-  getCurrentTab: async () => {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    return tab;
-  },
-
-  sendMessageToTab: (tabId, message) => chrome.tabs.sendMessage(tabId, message),
-
   sendMessage: (message) => chrome.runtime.sendMessage(message),
-
-  createTab: async (options) => {
-    await chrome.tabs.create(options);
-  },
 
   onMessage: {
     addListener: (handler) => {
       chrome.runtime.onMessage.addListener(handler);
-    },
-  },
-
-  onCommand: {
-    addListener: (handler) => {
-      chrome.commands.onCommand.addListener(handler);
     },
   },
 

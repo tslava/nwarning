@@ -43,38 +43,12 @@ button {
   background-color: #1976d2;
 }
 
-.shortcuts {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid #ddd;
-}
-
-.shortcuts h4 {
-  margin: 0 0 10px 0;
-  color: #666;
-}
-
-.shortcuts p {
-  margin: 5px 0;
-  font-size: 14px;
-}
-
 kbd {
   background-color: #f5f5f5;
   border: 1px solid #ddd;
   border-radius: 3px;
   padding: 2px 5px;
   font-size: 12px;
-}
-
-.mac-only {
-  display: none;
-}
-
-@media screen and (-webkit-min-device-pixel-ratio: 0) {
-  .mac-only {
-    display: block;
-  }
 }
 
 .host-access-warning {

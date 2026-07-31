@@ -15,15 +15,6 @@
       "css": ["css/content.css"]
     }
   ],
-  "commands": {
-    "switch-environment": {
-      "suggested_key": {
-        "default": "Ctrl+Shift+S",
-        "mac": "Command+Shift+S"
-      },
-      "description": "Switch between environments"
-    }
-  },
   "options_ui": {
     "page": "html/options.html",
     "open_in_tab": true

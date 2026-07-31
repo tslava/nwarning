@@ -131,28 +131,11 @@ const firefoxPlatform: PlatformAPI = {
     },
   },
 
-  getCurrentTab: async () => {
-    const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
-    return tab;
-  },
-
-  sendMessageToTab: (tabId, message) => browser.tabs.sendMessage(tabId, message),
-
   sendMessage: (message) => browser.runtime.sendMessage(message),
-
-  createTab: async (options) => {
-    await browser.tabs.create(options);
-  },
 
   onMessage: {
     addListener: (handler) => {
       browser.runtime.onMessage.addListener(handler);
-    },
-  },
-
-  onCommand: {
-    addListener: (handler) => {
-      browser.commands.onCommand.addListener(handler);
     },
   },
 
