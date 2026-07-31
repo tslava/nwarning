@@ -213,7 +213,8 @@ use.
 ### Banner Settings
 
 - Position: top or bottom of the page
-- Size: 30px, 50px, 100px or 150px, set separately for production and development
+- Size: 30, 50, 75, 100, 125 or 150px, set separately for production and
+  development. New installs start at 30px; a saved height is never changed for you
 
 ## Usage
 

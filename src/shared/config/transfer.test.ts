@@ -129,7 +129,7 @@ describe('importSettings', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.prodSize).toBe(200);
-      expect(result.value.devSize).toBe(50);
+      expect(result.value.devSize).toBe(30);
       expect(result.value.bannerPosition).toBe('top');
       expect(result.value.localStorageKeys).toEqual(['ok']);
     }

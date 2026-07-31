@@ -113,7 +113,7 @@ describe('options page: loading', () => {
     await open(new FakeStorage({ prodSize: 100, devSize: 30 }));
 
     const prod = document.getElementById('prodSize') as HTMLSelectElement;
-    expect([...prod.options].map((option) => option.value)).toEqual(['30', '50', '100', '150']);
+    expect([...prod.options].map((option) => option.value)).toEqual(['30', '50', '75', '100', '125', '150']);
     expect(prod.value).toBe('100');
     expect((document.getElementById('devSize') as HTMLSelectElement).value).toBe('30');
   });
