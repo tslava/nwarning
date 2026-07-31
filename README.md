@@ -189,21 +189,23 @@ everything else. So a **red chip on a green banner** is a development page point
 at production data, and a **green chip on a red banner** is the reverse — no
 comparison needed, the mismatch is the warning.
 
-**Clicking a chip flips its flag** between on and off, so pointing an app at
-production data and back does not need devtools. Two vocabularies are recognised,
-`1`/`0` and `true`/`false`, and the spelling is kept — `TRUE` becomes `FALSE`.
+**Clicking a chip flips its flag and opens the same page in a new tab.** Frontends
+read such flags once at startup, so the flip alone changes nothing in front of you —
+the new tab is where the app actually reads it. The tab you clicked from is left
+untouched, so the two are there to compare, and its chip says "reload to apply"
+until you reload it. Flip the flag back and that note goes away, because there is
+genuinely nothing left to reload for.
+
+Two vocabularies are flipped, `1`/`0` and `true`/`false`, and the spelling is kept —
+`TRUE` becomes `FALSE`.
 
 A value that is not one of those — `staging`, `2`, a JSON blob — is **not**
 overwritten: it is real configuration, a click cannot be undone, and the chip says
-so instead of changing it. Use `×` for those.
+so instead of changing it. Clear such a value from devtools.
 
-Each chip has a `×` that removes the key from the page. That matters because these
-flags usually treat any non-empty value as an override: writing `0` does not
-restore the default, only removing the key does.
-
-Frontends read such flags once at startup, so a changed chip says "reload to apply"
-until the page is reloaded — and stops saying it if you flip the flag back to the
-value the page actually loaded with.
+Note that most such flags treat any non-empty value as an override, so `0` is not
+always the same as the app's built-in default; the banner writes only these two
+values and never removes a key.
 
 Nothing about any particular key is built in — configure whichever keys your apps
 use.
@@ -218,7 +220,7 @@ use.
 - **Red banner / `PROD` badge**: production
 - **Green banner / `DEV` badge**: a non-production stand
 - **Warning chips**: monitored localStorage values, highlighted when switched on;
-  click one to flip it, `×` to remove it
+  click one to flip it and open the page again in a new tab, where the app reads it
 - **Copy button**: copies the current URL's parameters — from the query string, or
   from the hash when the page keeps its filter state there — and says what happened,
   including when there are no parameters to copy

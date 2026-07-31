@@ -15,7 +15,6 @@ function mountRenderer(
   const onSwitch = vi.fn();
   const onDismiss = vi.fn();
   const onToggleKey = vi.fn();
-  const onResetKey = vi.fn();
   const renderer = new BannerRenderer({
     isProduction,
     bannerSize: 50,
@@ -24,14 +23,13 @@ function mountRenderer(
     onSwitch,
     onDismiss,
     onToggleKey,
-    onResetKey,
   });
 
   const elements = renderer.create();
   if (!elements) throw new Error('renderer produced no elements');
   document.body.appendChild(elements.wrapper);
 
-  return { renderer, banner: elements.banner, onSwitch, onDismiss, onToggleKey, onResetKey };
+  return { renderer, banner: elements.banner, onSwitch, onDismiss, onToggleKey };
 }
 
 /** Mirrors what StorageMonitor reports, so the fixtures cannot describe a chip it never produces. */
@@ -234,8 +232,10 @@ describe('BannerRenderer.displayWarnings', () => {
     renderer.displayWarnings([warning('use-production-data', '1', true)]);
 
     const button = toggle(banner);
+    // Both effects have to be named, or the new tab is a surprise.
     expect(button?.title).toBe(
-      'Set use-production-data to 0 — the page reads it at startup, so reload to apply',
+      'Set use-production-data to 0 and open this page in a new tab, where the app will read it' +
+        ' — this tab keeps the value it started with',
     );
 
     button?.click();
@@ -269,7 +269,7 @@ describe('BannerRenderer.displayWarnings', () => {
 
     const flash = banner.querySelector<HTMLElement>('.banner-flash');
     expect(flash?.hidden).toBe(false);
-    expect(flash?.textContent).toBe('flag is not 0/1 — use × instead');
+    expect(flash?.textContent).toBe('flag is not 0/1 — left as it is');
   });
 
   it('offers to turn a removed flag back on', () => {
@@ -288,9 +288,7 @@ describe('BannerRenderer.displayWarnings', () => {
     renderer.displayWarnings([warning('flag', '1', true)]);
 
     // A bare action label would drop the current value out of the accessible name.
-    expect(toggle(banner)?.getAttribute('aria-label')).toBe(
-      'flag = 1. Set flag to 0 — the page reads it at startup, so reload to apply',
-    );
+    expect(toggle(banner)?.getAttribute('aria-label')).toMatch(/^flag = 1\. Set flag to 0 and open/);
   });
 
   it('keeps the value visible while a change awaits a reload', () => {
@@ -303,7 +301,6 @@ describe('BannerRenderer.displayWarnings', () => {
     expect(chip.classList.contains('is-disabled')).toBe(true);
     expect(chip.querySelector('.tracked-flag-text')?.textContent).toBe('flag = 0');
     expect(chip.querySelector('.tracked-flag-note')?.textContent).toBe('reload to apply');
-    expect(chip.querySelector('.tracked-flag-reset')).not.toBeNull();
   });
 
   it('leaves no nested buttons, which is not valid markup', () => {
@@ -312,33 +309,16 @@ describe('BannerRenderer.displayWarnings', () => {
     expect(chips(banner)[0].querySelector('button button')).toBeNull();
   });
 
-  it('offers a reset that names the key and says a reload is needed', () => {
-    const { renderer, banner, onResetKey } = mountRenderer();
-    renderer.displayWarnings([warning('use-production-data', '1', true)]);
-
-    const reset = chips(banner)[0].querySelector<HTMLButtonElement>('.tracked-flag-reset');
-    expect(reset?.getAttribute('aria-label')).toBe(
-      'Remove use-production-data and fall back to the app default (reload to apply)',
-    );
-
-    reset?.click();
-    expect(onResetKey).toHaveBeenCalledWith('use-production-data');
-  });
-
-  it('shows a neutral chip, with no reset, while a removal awaits a reload', () => {
+  it('leaves the chip a switch and nothing else', () => {
     const { renderer, banner } = mountRenderer();
-    renderer.displayWarnings([{ ...warning('use-production-data', null), pendingReload: true }]);
+    renderer.displayWarnings([warning('flag', '1', true), { ...warning('gone', null), pendingReload: true }]);
 
-    const chip = chips(banner)[0];
-    expect(chip.classList.contains('is-removed')).toBe(true);
-    expect(chip.classList.contains('is-enabled')).toBe(false);
-    // Not the "off" green either: the app is back on whatever it was built with.
-    expect(chip.classList.contains('is-disabled')).toBe(false);
-    expect(chip.querySelector('.tracked-flag-text')?.textContent).toBe(
-      'use-production-data — removed',
-    );
-    expect(chip.querySelector('.tracked-flag-note')?.textContent).toBe('reload to apply');
-    expect(chip.querySelector('.tracked-flag-reset')).toBeNull();
+    // There is no remove control any more: the two values a flag flips between
+    // are the whole vocabulary the banner writes.
+    expect(banner.querySelector('.tracked-flag-reset')).toBeNull();
+    for (const chip of chips(banner)) {
+      expect(chip.querySelectorAll('button')).toHaveLength(1);
+    }
   });
 
   it('does nothing before the banner is built', () => {
@@ -350,7 +330,6 @@ describe('BannerRenderer.displayWarnings', () => {
       onSwitch: vi.fn(),
       onDismiss: vi.fn(),
       onToggleKey: vi.fn(),
-      onResetKey: vi.fn(),
     });
     expect(() => renderer.displayWarnings([warning('a', '1')])).not.toThrow();
   });
