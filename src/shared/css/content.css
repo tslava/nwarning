@@ -236,18 +236,72 @@ html.banner-bottom {
   color: #000 !important;
 }
 
-/* Removed here, but the page still runs on the old value until it reloads. */
-#environment-banner .tracked-flag.is-pending {
+/*
+ * Removed here: neutral rather than the "off" green, because the app is back on
+ * however it was built and the colours only speak about values.
+ */
+#environment-banner .tracked-flag.is-removed {
   background-color: #fff !important;
   color: #333 !important;
   font-style: italic !important;
   padding-right: 8px !important;
 }
 
+/*
+ * The chip's body is the switch for its flag. The chip itself stays a span, since
+ * `×` is a button and buttons cannot nest.
+ */
+#environment-banner .tracked-flag-toggle {
+  display: inline-flex !important;
+  align-items: baseline !important;
+  gap: 6px !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  background: none !important;
+  color: inherit !important;
+  font: inherit !important;
+  line-height: inherit !important;
+  text-align: left !important;
+  cursor: pointer !important;
+  text-shadow: none !important;
+}
+
+#environment-banner .tracked-flag-toggle:hover .tracked-flag-text {
+  text-decoration: underline !important;
+}
+
+#environment-banner .tracked-flag-toggle:focus-visible {
+  outline: 2px solid currentColor !important;
+  outline-offset: 1px !important;
+}
+
+/* Not a 0/1 flag: clicking explains instead of overwriting it. */
+#environment-banner .tracked-flag-toggle.is-locked {
+  cursor: default !important;
+}
+
+#environment-banner .tracked-flag-toggle.is-locked:hover .tracked-flag-text {
+  text-decoration: none !important;
+}
+
 #environment-banner .tracked-flag-text {
   overflow: hidden !important;
   white-space: nowrap !important;
   text-overflow: ellipsis !important;
+}
+
+/*
+ * Changed here, while the page still runs on the value it read at startup. Set in
+ * smaller regular type so the flag's own name and value stay the loud part.
+ */
+#environment-banner .tracked-flag-note {
+  flex: none !important;
+  font-size: 11px !important;
+  font-weight: normal !important;
+  font-style: italic !important;
+  opacity: 0.85 !important;
 }
 
 #environment-banner .tracked-flag-reset {

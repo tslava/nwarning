@@ -74,7 +74,8 @@ by id.
 │   │   │   ├── validation.ts          # Hostname normalization and validation
 │   │   │   └── settings.ts            # SettingsManager (load/save/migrate/watch)
 │   │   ├── storage/
-│   │   │   └── StorageMonitor.ts      # Page localStorage monitoring
+│   │   │   ├── StorageMonitor.ts      # Page localStorage monitoring and writes
+│   │   │   └── flagValue.ts           # Flag value rules: on/off, and what a click writes
 │   │   ├── utils/
 │   │   │   ├── patterns.ts            # Hostname pattern matching
 │   │   │   └── environment.ts         # Which side of a pair a hostname is on
@@ -188,10 +189,21 @@ everything else. So a **red chip on a green banner** is a development page point
 at production data, and a **green chip on a red banner** is the reverse — no
 comparison needed, the mismatch is the warning.
 
+**Clicking a chip flips its flag** between on and off, so pointing an app at
+production data and back does not need devtools. Two vocabularies are recognised,
+`1`/`0` and `true`/`false`, and the spelling is kept — `TRUE` becomes `FALSE`.
+
+A value that is not one of those — `staging`, `2`, a JSON blob — is **not**
+overwritten: it is real configuration, a click cannot be undone, and the chip says
+so instead of changing it. Use `×` for those.
+
 Each chip has a `×` that removes the key from the page. That matters because these
 flags usually treat any non-empty value as an override: writing `0` does not
-restore the default, only removing the key does. Frontends read such flags once at
-startup, so the chip says "reload to apply" until the page is reloaded.
+restore the default, only removing the key does.
+
+Frontends read such flags once at startup, so a changed chip says "reload to apply"
+until the page is reloaded — and stops saying it if you flip the flag back to the
+value the page actually loaded with.
 
 Nothing about any particular key is built in — configure whichever keys your apps
 use.
@@ -205,7 +217,8 @@ use.
 
 - **Red banner / `PROD` badge**: production
 - **Green banner / `DEV` badge**: a non-production stand
-- **Warning text**: monitored localStorage values, highlighted when switched on
+- **Warning chips**: monitored localStorage values, highlighted when switched on;
+  click one to flip it, `×` to remove it
 - **Copy button**: copies the current URL's parameters — from the query string, or
   from the hash when the page keeps its filter state there — and says what happened,
   including when there are no parameters to copy

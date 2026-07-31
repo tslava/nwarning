@@ -113,7 +113,9 @@ src/shared/
 │   ├── EnvironmentSwitcher.ts # Resolves the counterpart URL
 │   └── index.ts
 ├── config/                    # Settings (see above)
-├── storage/StorageMonitor.ts  # Page localStorage monitoring
+├── storage/
+│   ├── StorageMonitor.ts      # Page localStorage monitoring and writes
+│   └── flagValue.ts           # What a flag's value means, and what a click writes
 ├── utils/                     # patterns.ts, environment.ts
 └── content.ts                 # Orchestrator
 ```
@@ -159,10 +161,29 @@ means the effective environment is the page's own, and the banner already says
 that.
 
 The `×` removes the key rather than writing `0`, because these flags treat any
-non-empty value as an override — removal is the only way back to the default. The
-chip then stays visible as `reload to apply`: the flags are read once at startup,
-so the stored value and what the page is running have diverged. `StorageMonitor`
-keeps that pending set; do not drop it on refresh.
+non-empty value as an override — removal is the only way back to the default. A
+removed chip is neutral, not the "off" green: the app is back on whatever it was
+built with, which is not a statement about the flag's value.
+
+**A click on the chip flips the flag.** Only `1`/`0` and `true`/`false` are flipped,
+case preserved; `nextFlagValue` returns `null` for anything else and the chip says
+why instead of writing. That refusal is the point: `staging`, `2` or a JSON blob is
+somebody's configuration, one click must not destroy it, and localStorage keeps no
+history to undo from. `×` stays the way out of such a value, where the user is
+plainly asking for it to go. `looksEnabled` and `nextFlagValue` live in one file
+because they must agree — an unrecognised value must never read as on, or the
+colour and the flip would contradict each other.
+
+The refusal is enforced in `StorageMonitor.toggle` as well as in the chip, and the
+value is re-read there: what the chip was built from can be stale by the time it is
+clicked, and nothing may overwrite a value it has not just looked at.
+
+`reload to apply` is derived, not sticky. Flags are read once at startup, so
+`StorageMonitor` keeps the value each key held before *it* first changed it and
+shows the note exactly while the stored value differs from that. Flip a flag and
+flip it back and the note goes away by itself, because there is genuinely nothing
+left to reload for. Do not replace that with a "changed" flag, and do not drop it
+on refresh.
 
 No key name appears anywhere in the source. Keys come from settings only.
 

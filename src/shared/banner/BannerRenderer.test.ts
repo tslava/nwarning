@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BannerRenderer, currentUrlParameters } from './BannerRenderer';
 import type { SwitchTarget } from './EnvironmentSwitcher';
 import type { Warning } from '../storage/StorageMonitor';
+import { nextFlagValue } from '../storage/flagValue';
 
 function target(hostname: string, isProduction = false): SwitchTarget {
   return { hostname, url: `https://${hostname}/`, isProduction };
@@ -13,6 +14,7 @@ function mountRenderer(
 ) {
   const onSwitch = vi.fn();
   const onDismiss = vi.fn();
+  const onToggleKey = vi.fn();
   const onResetKey = vi.fn();
   const renderer = new BannerRenderer({
     isProduction,
@@ -21,6 +23,7 @@ function mountRenderer(
     targets,
     onSwitch,
     onDismiss,
+    onToggleKey,
     onResetKey,
   });
 
@@ -28,11 +31,12 @@ function mountRenderer(
   if (!elements) throw new Error('renderer produced no elements');
   document.body.appendChild(elements.wrapper);
 
-  return { renderer, banner: elements.banner, onSwitch, onDismiss, onResetKey };
+  return { renderer, banner: elements.banner, onSwitch, onDismiss, onToggleKey, onResetKey };
 }
 
-function warning(key: string, value: string, isWarning = false): Warning {
-  return { key, value, isWarning, pendingReload: false };
+/** Mirrors what StorageMonitor reports, so the fixtures cannot describe a chip it never produces. */
+function warning(key: string, value: string | null, isWarning = false): Warning {
+  return { key, value, isWarning, pendingReload: false, nextValue: nextFlagValue(value) };
 }
 
 beforeEach(() => {
@@ -221,6 +225,93 @@ describe('BannerRenderer.displayWarnings', () => {
     expect(chips(banner)[0].querySelector('.tracked-flag-text')?.textContent).toBe('b = 2');
   });
 
+  function toggle(banner: HTMLElement, index = 0) {
+    return chips(banner)[index].querySelector<HTMLButtonElement>('.tracked-flag-toggle');
+  }
+
+  it('flips a 0/1 flag when its chip is clicked, and says what that will write', () => {
+    const { renderer, banner, onToggleKey } = mountRenderer();
+    renderer.displayWarnings([warning('use-production-data', '1', true)]);
+
+    const button = toggle(banner);
+    expect(button?.title).toBe(
+      'Set use-production-data to 0 — the page reads it at startup, so reload to apply',
+    );
+
+    button?.click();
+    expect(onToggleKey).toHaveBeenCalledWith('use-production-data');
+  });
+
+  it('names the value the flag will be given, not just the flip', () => {
+    const { renderer, banner } = mountRenderer();
+    renderer.displayWarnings([warning('flag', 'FALSE')]);
+    // The vocabulary and spelling the page used are kept, so the chip has to say so.
+    expect(toggle(banner)?.title).toContain('Set flag to TRUE');
+  });
+
+  it('does not overwrite a value that is not a plain on/off flag', () => {
+    const { renderer, banner, onToggleKey } = mountRenderer();
+    renderer.displayWarnings([warning('flag', 'staging')]);
+
+    const button = toggle(banner);
+    expect(button?.classList.contains('is-locked')).toBe(true);
+    expect(button?.getAttribute('aria-disabled')).toBe('true');
+
+    button?.click();
+    expect(onToggleKey).not.toHaveBeenCalled();
+  });
+
+  it('says why, rather than quietly ignoring the click', () => {
+    const { renderer, banner } = mountRenderer();
+    renderer.displayWarnings([warning('flag', '{"env":"prod"}')]);
+
+    toggle(banner)?.click();
+
+    const flash = banner.querySelector<HTMLElement>('.banner-flash');
+    expect(flash?.hidden).toBe(false);
+    expect(flash?.textContent).toBe('flag is not 0/1 — use × instead');
+  });
+
+  it('offers to turn a removed flag back on', () => {
+    const { renderer, banner, onToggleKey } = mountRenderer();
+    renderer.displayWarnings([{ ...warning('flag', null), pendingReload: true }]);
+
+    const button = toggle(banner);
+    expect(button?.title).toContain('Set flag to 1');
+
+    button?.click();
+    expect(onToggleKey).toHaveBeenCalledWith('flag');
+  });
+
+  it('keeps the flag readable to a screen reader alongside the action', () => {
+    const { renderer, banner } = mountRenderer();
+    renderer.displayWarnings([warning('flag', '1', true)]);
+
+    // A bare action label would drop the current value out of the accessible name.
+    expect(toggle(banner)?.getAttribute('aria-label')).toBe(
+      'flag = 1. Set flag to 0 — the page reads it at startup, so reload to apply',
+    );
+  });
+
+  it('keeps the value visible while a change awaits a reload', () => {
+    const { renderer, banner } = mountRenderer();
+    renderer.displayWarnings([{ ...warning('flag', '0'), pendingReload: true }]);
+
+    const chip = chips(banner)[0];
+    // Coloured by what is stored, so the click has a visible effect straight away,
+    // with the outstanding reload said in words next to it.
+    expect(chip.classList.contains('is-disabled')).toBe(true);
+    expect(chip.querySelector('.tracked-flag-text')?.textContent).toBe('flag = 0');
+    expect(chip.querySelector('.tracked-flag-note')?.textContent).toBe('reload to apply');
+    expect(chip.querySelector('.tracked-flag-reset')).not.toBeNull();
+  });
+
+  it('leaves no nested buttons, which is not valid markup', () => {
+    const { renderer, banner } = mountRenderer();
+    renderer.displayWarnings([warning('flag', '1', true)]);
+    expect(chips(banner)[0].querySelector('button button')).toBeNull();
+  });
+
   it('offers a reset that names the key and says a reload is needed', () => {
     const { renderer, banner, onResetKey } = mountRenderer();
     renderer.displayWarnings([warning('use-production-data', '1', true)]);
@@ -236,15 +327,17 @@ describe('BannerRenderer.displayWarnings', () => {
 
   it('shows a neutral chip, with no reset, while a removal awaits a reload', () => {
     const { renderer, banner } = mountRenderer();
-    renderer.displayWarnings([
-      { key: 'use-production-data', value: '', isWarning: false, pendingReload: true },
-    ]);
+    renderer.displayWarnings([{ ...warning('use-production-data', null), pendingReload: true }]);
 
     const chip = chips(banner)[0];
-    expect(chip.classList.contains('is-pending')).toBe(true);
+    expect(chip.classList.contains('is-removed')).toBe(true);
     expect(chip.classList.contains('is-enabled')).toBe(false);
+    // Not the "off" green either: the app is back on whatever it was built with.
     expect(chip.classList.contains('is-disabled')).toBe(false);
-    expect(chip.textContent).toBe('use-production-data — reload to apply');
+    expect(chip.querySelector('.tracked-flag-text')?.textContent).toBe(
+      'use-production-data — removed',
+    );
+    expect(chip.querySelector('.tracked-flag-note')?.textContent).toBe('reload to apply');
     expect(chip.querySelector('.tracked-flag-reset')).toBeNull();
   });
 
@@ -256,6 +349,7 @@ describe('BannerRenderer.displayWarnings', () => {
       targets: [],
       onSwitch: vi.fn(),
       onDismiss: vi.fn(),
+      onToggleKey: vi.fn(),
       onResetKey: vi.fn(),
     });
     expect(() => renderer.displayWarnings([warning('a', '1')])).not.toThrow();

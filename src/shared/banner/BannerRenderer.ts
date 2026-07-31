@@ -16,6 +16,8 @@ export interface BannerConfig {
   onSwitch: (target: SwitchTarget) => void;
   /** Hide the banner for this page view, without changing any setting. */
   onDismiss: () => void;
+  /** Flip a tracked localStorage flag between its on and off values. */
+  onToggleKey: (key: string) => void;
   /** Remove a tracked localStorage key from the page. */
   onResetKey: (key: string) => void;
 }
@@ -131,6 +133,8 @@ export class BannerRenderer {
    * the banner itself uses, so a red chip on a green banner — a dev page pointed
    * at production — is visible without any comparison logic. Keys and values are
    * page-controlled, so they are written as text.
+   *
+   * Each chip is also the switch for its flag; see `createToggleButton`.
    */
   displayWarnings(warnings: Warning[]): void {
     if (!this.banner) return;
@@ -152,24 +156,76 @@ export class BannerRenderer {
     this.warningContent.replaceChildren(...warnings.map((warning) => this.createChip(warning)));
   }
 
+  /**
+   * A chip carries the flag's value and is itself the switch. It stays a `span`
+   * because `×` is a button of its own and nesting buttons is not valid markup.
+   *
+   * A removed key keeps the neutral look rather than taking the "off" green: the
+   * app is back on however it was built, which is not the same statement as the
+   * flag being off, and the colours only speak about values.
+   */
   private createChip(warning: Warning): HTMLElement {
     const chip = document.createElement('span');
     chip.className = 'tracked-flag';
+    chip.classList.add(
+      warning.value === null ? 'is-removed' : warning.isWarning ? 'is-enabled' : 'is-disabled',
+    );
 
-    const label = document.createElement('span');
-    label.className = 'tracked-flag-text';
+    chip.appendChild(this.createToggleButton(warning));
+    // Nothing to remove once it is gone, and the chip is only still here to say a
+    // reload is outstanding.
+    if (warning.value !== null) chip.appendChild(this.createResetButton(warning.key));
+    return chip;
+  }
 
+  /**
+   * Clicking the chip flips the flag, which is what these flags exist for.
+   *
+   * A value that is not a plain on/off flag is not flipped: `staging`, `2` or a
+   * JSON blob is real configuration, one click must not overwrite it, and there is
+   * nothing to undo it from. Such a chip stays a focusable button that says so
+   * when clicked, rather than one that quietly ignores it — a control that
+   * silently does nothing is exactly how the copy button was reported as broken.
+   */
+  private createToggleButton(warning: Warning): HTMLButtonElement {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'tracked-flag-toggle';
+
+    const text = document.createElement('span');
+    text.className = 'tracked-flag-text';
+    text.textContent =
+      warning.value === null ? `${warning.key} — removed` : `${warning.key} = ${warning.value}`;
+    button.appendChild(text);
+
+    // The value has been changed here, but the page read the old one at startup.
     if (warning.pendingReload) {
-      chip.classList.add('is-pending');
-      label.textContent = `${warning.key} — reload to apply`;
-      chip.appendChild(label);
-      return chip;
+      const note = document.createElement('span');
+      note.className = 'tracked-flag-note';
+      note.textContent = 'reload to apply';
+      button.appendChild(note);
     }
 
-    chip.classList.add(warning.isWarning ? 'is-enabled' : 'is-disabled');
-    label.textContent = `${warning.key} = ${warning.value}`;
-    chip.append(label, this.createResetButton(warning.key));
-    return chip;
+    const state = warning.value === null ? `${warning.key} is removed` : text.textContent;
+    const action =
+      warning.nextValue === null
+        ? `${warning.key} is not 0/1, so clicking leaves it alone — use × to fall back to the app default`
+        : `Set ${warning.key} to ${warning.nextValue} — the page reads it at startup, so reload to apply`;
+
+    button.title = action;
+    button.setAttribute('aria-label', `${state}. ${action}`);
+
+    if (warning.nextValue === null) {
+      button.classList.add('is-locked');
+      button.setAttribute('aria-disabled', 'true');
+      button.addEventListener('click', () =>
+        this.showFlash(`${warning.key} is not 0/1 — use × instead`, 'warn'),
+      );
+      return button;
+    }
+
+    button.addEventListener('click', () => this.config.onToggleKey(warning.key));
+    return button;
   }
 
   private createResetButton(key: string): HTMLButtonElement {
