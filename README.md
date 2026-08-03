@@ -116,6 +116,18 @@ by id.
 The version in `package.json` is the single source of truth; both manifests get
 it injected at build time.
 
+### Icons
+
+`src/shared/images/icon_*.png` are **generated** by `python3 tools/icon.py` —
+edit that script rather than the images, or the next run reverts your change. It
+needs Pillow (`pip install pillow`) and nothing else, and is not part of the
+build: the PNGs are committed.
+
+The icon is a circle split down the middle, green for a stand and red for
+production, in the banner's own colours. The halves and the white gap between them
+are drawn at each target size on whole pixels, so the 16px toolbar version stays
+crisp instead of resolving into two grey columns.
+
 The bundle is intentionally **not minified**: the whole extension is well under
 150 KB, and readable shipped code means add-on reviewers see what actually runs —
 AMO only demands a separate source-code submission when the code has been made
