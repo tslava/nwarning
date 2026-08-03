@@ -288,7 +288,9 @@ describe('BannerRenderer.displayWarnings', () => {
     renderer.displayWarnings([warning('flag', '1', true)]);
 
     // A bare action label would drop the current value out of the accessible name.
-    expect(toggle(banner)?.getAttribute('aria-label')).toMatch(/^flag = 1\. Set flag to 0 and open/);
+    expect(toggle(banner)?.getAttribute('aria-label')).toMatch(
+      /^flag = 1\. Set flag to 0 and open/,
+    );
   });
 
   it('keeps the value visible while a change awaits a reload', () => {
@@ -311,7 +313,10 @@ describe('BannerRenderer.displayWarnings', () => {
 
   it('leaves the chip a switch and nothing else', () => {
     const { renderer, banner } = mountRenderer();
-    renderer.displayWarnings([warning('flag', '1', true), { ...warning('gone', null), pendingReload: true }]);
+    renderer.displayWarnings([
+      warning('flag', '1', true),
+      { ...warning('gone', null), pendingReload: true },
+    ]);
 
     // There is no remove control any more: the two values a flag flips between
     // are the whole vocabulary the banner writes.

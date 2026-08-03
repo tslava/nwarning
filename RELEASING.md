@@ -40,11 +40,11 @@ None of this can be automated; it all involves signing in as a human.
 
 Configured on 2026-08-03; recorded here so it is not redone or silently undone.
 
-| Setting                                    | Value                              |
-| ------------------------------------------ | ---------------------------------- |
-| Environment `stores`, required reviewer    | `tslava`                           |
-| Environment `stores`, deployment branches  | tag pattern `v*` only              |
-| Actions → default workflow permissions     | write                              |
+| Setting                                   | Value                 |
+| ----------------------------------------- | --------------------- |
+| Environment `stores`, required reviewer   | `tslava`              |
+| Environment `stores`, deployment branches | tag pattern `v*` only |
+| Actions → default workflow permissions    | write                 |
 
 Note that an environment named in a workflow but **not** created in the
 repository is created implicitly, with no protection at all — so the approval
