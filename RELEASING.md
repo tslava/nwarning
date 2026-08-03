@@ -36,11 +36,26 @@ which means another review cycle. One click is cheap insurance.
 
 None of this can be automated; it all involves signing in as a human.
 
-### GitHub
+### GitHub — done
 
-Create an environment named `stores` (Settings → Environments) and add yourself
-as a **required reviewer**. Without this the publish job runs unattended, which
-defeats the point.
+Configured on 2026-08-03; recorded here so it is not redone or silently undone.
+
+| Setting                                    | Value                              |
+| ------------------------------------------ | ---------------------------------- |
+| Environment `stores`, required reviewer    | `tslava`                           |
+| Environment `stores`, deployment branches  | tag pattern `v*` only              |
+| Actions → default workflow permissions     | write                              |
+
+Note that an environment named in a workflow but **not** created in the
+repository is created implicitly, with no protection at all — so the approval
+gate does not exist until the environment exists. Deleting it silently disarms
+the gate rather than breaking the release.
+
+The tag policy means the publish job cannot run from a branch, only from a `v*`
+tag. Both workflows declare their own `permissions`, so the repository default
+matters only as the ceiling the release job's `contents: write` needs; the
+publish job, which is the one holding store credentials, declares `{}` and gets
+no repository access.
 
 ### Chrome Web Store
 

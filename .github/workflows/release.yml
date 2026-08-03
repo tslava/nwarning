@@ -69,6 +69,9 @@ jobs:
     name: Submit to the stores
     needs: build
     runs-on: ubuntu-latest
+    # This job talks to the stores, never to GitHub, so the job that handles the
+    # store credentials gets no repository access at all.
+    permissions: {}
     # Configure this environment with yourself as a required reviewer: stores
     # have no rollback, only a higher version, so submission is a decision.
     environment: stores

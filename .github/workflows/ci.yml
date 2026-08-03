@@ -11,6 +11,11 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Stated rather than inherited: the repository default has to allow the release
+# workflow to write a release, and this job never needs more than the source.
+permissions:
+  contents: read
+
 jobs:
   verify:
     name: Check and build both targets
