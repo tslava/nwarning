@@ -80,57 +80,125 @@ secret is readable only by a job that names that environment, and naming it cost
 an approval — so nothing can reach these credentials without a deliberate click.
 The publish job already runs in `stores`, and so does the credential check below.
 
-### Chrome Web Store
+### Chrome Web Store, step by step
 
-Two of the five are already in the
-[developer dashboard](https://chrome.google.com/webstore/devconsole): the
-extension id is in the URL of its page, and the publisher id is under Account.
+Google's own walkthrough is
+<https://developer.chrome.com/docs/webstore/using-api>. Console labels moved in the
+2025 redesign, so both names are given below.
 
-The other three come from the Web Store API, which needs an OAuth client and a
-refresh token. Google's walkthrough is
-<https://developer.chrome.com/docs/webstore/using-api>; the shape of it is a Google
-Cloud project → enable **Chrome Web Store API** → configure the OAuth consent
-screen (External, scope `https://www.googleapis.com/auth/chromewebstore`) → an
-OAuth client of type **Web application** whose authorized redirect URI is
-`https://developers.google.com/oauthplayground` → authorize in the
-[OAuth playground](https://developers.google.com/oauthplayground) with **Use your
-own OAuth credentials** and exchange the code for a refresh token.
+**1. Two values you already have.** In the
+[developer dashboard](https://chrome.google.com/webstore/devconsole):
 
-**Set the consent screen's publishing status to "In production".** While it is
-"Testing", Google issues refresh tokens that expire after **seven days** — the
-pipeline then works today and fails next week, with an `invalid_grant` that looks
-like a mistyped secret. Verification is not required for this; the "unverified
-app" warning is simply clicked through when authorizing.
+- open the extension — its id is the long letter string in the page URL. That is
+  `CWS_EXTENSION_ID`.
+- **Account** in the left sidebar → **Publisher ID**. That is `CWS_PUBLISHER_ID`.
 
-Authorize with the account that owns the extension, or the token will be valid and
-still unable to see the item.
+**2. A Google Cloud project.** [console.cloud.google.com](https://console.cloud.google.com)
+→ project picker at the top → **New project** → any name → Create, then make sure
+it is the selected project.
 
-| Secret              | Where it comes from                      |
-| ------------------- | ---------------------------------------- |
-| `CWS_EXTENSION_ID`  | dashboard URL, or the store page URL     |
-| `CWS_PUBLISHER_ID`  | dashboard → Account → Publisher ID       |
-| `CWS_CLIENT_ID`     | the OAuth client                         |
-| `CWS_CLIENT_SECRET` | the OAuth client                         |
-| `CWS_REFRESH_TOKEN` | the playground's code-for-token exchange |
+**3. Enable the API.** **APIs & Services → Library** → search
+`Chrome Web Store API` → **Enable**. Without this every call returns 403 no matter
+how good the token is.
 
-### addons.mozilla.org
+**4. The consent screen.** **APIs & Services → OAuth consent screen**, which in the
+newer console is **Google Auth Platform** with the same content split up:
 
-Developer Hub → Manage API Keys generates a JWT issuer and secret. The secret is
-shown once and never again, so a truncated paste is the likely failure and looks
-identical to a wrong one.
+- _Branding_ (was the first consent-screen page): app name, user support email,
+  developer contact.
+- _Audience_: user type **External**. Then **Publishing status → In production**
+  (the "Publish app" button). See the warning below — this is the step people skip.
+- _Data Access_ (was "Scopes"): **Add or remove scopes** → paste
+  `https://www.googleapis.com/auth/chromewebstore` → Update.
 
-| Secret           | Where it comes from |
-| ---------------- | ------------------- |
-| `AMO_JWT_ISSUER` | Manage API Keys     |
-| `AMO_JWT_SECRET` | Manage API Keys     |
+**5. The OAuth client.** **Credentials → Create credentials → OAuth client ID**, or
+_Clients → Create client_ in the newer console:
+
+- Application type: **Web application**
+- **Authorized redirect URIs → Add URI**, exactly:
+  `https://developers.google.com/oauthplayground`
+- Create. The dialog shows the **Client ID** and **Client secret** — those are
+  `CWS_CLIENT_ID` and `CWS_CLIENT_SECRET`. The secret can be re-read later from the
+  client's page.
+
+**6. The refresh token**, in the
+[OAuth 2.0 Playground](https://developers.google.com/oauthplayground):
+
+- gear icon, top right → tick **Use your own OAuth credentials** → paste the client
+  id and secret.
+- Left panel, the box under the API list: type
+  `https://www.googleapis.com/auth/chromewebstore` → **Authorize APIs**.
+- Sign in **as the account that owns the extension in the store**, and click through
+  the "Google hasn't verified this app" warning.
+- Back in the playground, step 2 → **Exchange authorization code for tokens**. Copy
+  the **Refresh token** — that is `CWS_REFRESH_TOKEN`.
+
+**7. Store them.** Each command prompts for the value; paste and press enter, so
+nothing lands in shell history:
+
+```bash
+gh secret set CWS_EXTENSION_ID  --env stores
+gh secret set CWS_PUBLISHER_ID  --env stores
+gh secret set CWS_CLIENT_ID     --env stores
+gh secret set CWS_CLIENT_SECRET --env stores
+gh secret set CWS_REFRESH_TOKEN --env stores
+```
+
+**8. Check them** — see "Checking the credentials" below, with `chrome` as the
+store. It reads the item and prints the version the store currently has.
+
+> **Do not leave the publishing status on "Testing".** Google's words: a project
+> with an external user type and a publishing status of "Testing" is issued a
+> refresh token expiring in 7 days, unless the scopes are only name, email and
+> profile. Ours is not. The pipeline then works today, and next week fails with an
+> `invalid_grant` that reads exactly like a mistyped secret. Verification is not
+> required to be "In production"; the unverified-app warning is just clicked
+> through.
+
+Authorizing with the wrong Google account gives a token that works and still cannot
+see the item — the check reports that as a 404 on the item rather than an auth
+error, which is the same symptom as a wrong extension id.
+
+### addons.mozilla.org, step by step
+
+**1. Generate the key.** [Developer Hub](https://addons.mozilla.org/developers/) →
+your avatar → **Manage API Keys** → generate credentials. You get:
+
+- **JWT issuer**, looking like `user:12345:67` → `AMO_JWT_ISSUER`
+- **JWT secret**, a long hex string → `AMO_JWT_SECRET`
+
+**2. Copy the secret now.** It is displayed once. If it is lost, revoke and
+generate a new pair; there is no way to read it back. A truncated paste fails
+exactly like a wrong one.
+
+**3. Store them:**
+
+```bash
+gh secret set AMO_JWT_ISSUER --env stores
+gh secret set AMO_JWT_SECRET --env stores
+```
+
+**4. Check them** with `firefox` as the store. It authenticates, then reads the
+add-on to confirm this account can see the thing it is meant to be updating.
 
 ### Checking the credentials
 
-Run the **Verify store credentials** workflow (Actions → run it by hand, then
-approve). It exchanges the Chrome refresh token and reads the item, signs an AMO
-JWT and reads the add-on, and reports the version each store currently has — all
-reads, nothing submitted. `node tools/check-store-credentials.mjs` does the same
-locally if the six variables are in the environment.
+```bash
+gh workflow run "Verify store credentials" --ref main -f store=chrome
+gh run watch "$(gh run list --workflow 'Verify store credentials' --limit 1 --json databaseId --jq '.[0].databaseId')"
+```
+
+Or Actions → **Verify store credentials** → Run workflow. Either way it waits for
+your approval first, because the credentials live in the `stores` environment.
+
+It exchanges the Chrome refresh token and reads the item, signs an AMO JWT and
+reads the add-on, and reports the version each store currently has — all reads,
+nothing submitted. `store` takes `chrome`, `firefox` or `both`, so each half can be
+checked as it is set up.
+
+`node tools/check-store-credentials.mjs [chrome|firefox]` does the same locally if
+the variables are in the environment, which is the faster loop while fixing a bad
+value.
 
 Worth running before a release, and the first thing to run when a release fails at
 the publish step: it distinguishes a dead credential from a rejected archive.
