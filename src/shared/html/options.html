@@ -13,7 +13,11 @@
   <body>
     <div class="container">
       <h2>Environment Warning Settings</h2>
-      <div id="status" class="status"></div>
+      <!--
+        Rendered as a toast fixed to the viewport, so its position in the markup is
+        immaterial — see .status in options.css for why it is not a block up here.
+      -->
+      <div id="status" class="status" role="status" aria-live="polite" hidden></div>
 
       <div id="siteAccessSection" class="settings-section site-access" hidden>
         <h3>Site access</h3>

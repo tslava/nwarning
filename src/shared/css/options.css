@@ -326,14 +326,57 @@ h3 {
   background-color: #148f14;
 }
 
+/*
+ * A toast pinned to the viewport, not a block at the top of the page.
+ *
+ * The buttons that produce these messages are in the middle of the page and at the
+ * very bottom, so "Settings saved" appeared above the fold at the moment it was
+ * written — off screen, which reads exactly like a button that does nothing. It is
+ * the same defect the banner's copy button had.
+ *
+ * Bottom centre rather than a corner: the Save button is bottom right, and a toast
+ * must not cover the control that produced it.
+ */
 .status {
-  display: none;
-  padding: 10px 15px;
-  margin-bottom: 20px;
-  border-radius: 4px;
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  z-index: 100;
+  max-width: min(600px, calc(100vw - 32px));
+  padding: 12px 18px;
+  border-radius: 6px;
   background-color: #d4edda;
   color: #155724;
   border: 1px solid #c3e6cb;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+  font-weight: 500;
+  animation: status-appear 0.18s ease-out;
+}
+
+.status[hidden] {
+  display: none;
+}
+
+/* The keyframes carry the centring translate too, or animating transform drops it. */
+@keyframes status-appear {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 10px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.status:not([hidden]) {
+  transform: translateX(-50%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status {
+    animation: none;
+  }
 }
 
 .status.error {
