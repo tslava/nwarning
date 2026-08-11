@@ -33,7 +33,7 @@ Environment Switcher makes it obvious which environment you are looking at, and
 lets you jump to its counterpart without editing the address bar.
 
 A coloured banner sits at the top or bottom of the page: red on production, green
-on anything else. The toolbar icon carries a PROD or DEV badge, so the environment
+on anything else. The toolbar icon carries a red P or a green D, so the environment
 is still visible when the banner is hidden.
 
 WHAT IT DOES
@@ -225,7 +225,7 @@ people look at.
    production data. That is the mistake the extension exists to catch.
 4. **Options page**, with an environment group and the tracked keys filled in, so the
    configuration model is visible before install.
-5. **Popup**, showing the version and the PROD/DEV badge on the toolbar icon.
+5. **Popup**, showing the version and the P/D badge on the toolbar icon.
 
 ### Taking them honestly, without any internal hostname
 

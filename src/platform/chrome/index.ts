@@ -52,10 +52,15 @@ const chromePlatform: PlatformAPI = {
     },
   },
 
-  setBadge: async ({ tabId, text, color }) => {
+  setBadge: async ({ tabId, text, color, textColor }) => {
     await chrome.action.setBadgeText({ tabId, text });
     if (text && color) {
       await chrome.action.setBadgeBackgroundColor({ tabId, color });
+    }
+    // Chrome only grew this in 110; without the guard an older build throws here
+    // and loses the background colour that was already set.
+    if (text && textColor && chrome.action.setBadgeTextColor) {
+      await chrome.action.setBadgeTextColor({ tabId, color: textColor });
     }
   },
 

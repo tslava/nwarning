@@ -283,6 +283,16 @@ The badge is set by `background.ts`, since content scripts cannot reach the acti
 API. A content script sends `environment-detected` and the worker badges
 `sender.tab.id`.
 
+Its text is **one character**, `P` or `D`. The API documents "only about four can
+fit" and that is optimistic: `PROD` was clipped in Chrome and `DEV` was clipped in
+Firefox, which also draws the badge in a different place. One character survives any
+theme, font or display scale, and the colour carries the meaning regardless. The
+badge takes the chips' colours rather than the banner's, because text sits on it —
+white on `#ff4444` is 3.0:1 and white on `#17b417` is 2.4:1, so the pairs are dark
+red with white and green with black. `setBadgeTextColor` is called behind an
+existence check: Chrome only added it in 110, and throwing there would lose the
+background colour already applied.
+
 ### Host Access
 
 Manifest V3 leaves host access to the user on Firefox, and without it the banner
