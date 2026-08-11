@@ -1,6 +1,6 @@
 {
   "name": "environment-warning-extension",
-  "version": "1.3.0",
+  "version": "2.0.0",
   "description": "Browser extension for switching between development and production environments",
   "scripts": {
     "build": "webpack",
