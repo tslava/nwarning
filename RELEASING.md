@@ -57,35 +57,73 @@ matters only as the ceiling the release job's `contents: write` needs; the
 publish job, which is the one holding store credentials, declares `{}` and gets
 no repository access.
 
+### Where the secrets go
+
+Into the **`stores` environment**, not the repository's own secrets:
+
+```bash
+gh secret set CWS_CLIENT_ID --env stores
+```
+
+A repository secret is readable by any workflow on any branch. An environment
+secret is readable only by a job that names that environment, and naming it costs
+an approval — so nothing can reach these credentials without a deliberate click.
+The publish job already runs in `stores`, and so does the credential check below.
+
 ### Chrome Web Store
 
-Uses the Web Store API, which needs an OAuth2 client and a refresh token. Follow
-Google's own walkthrough — the UI moves too often to be worth transcribing:
-<https://developer.chrome.com/docs/webstore/using-api>
+Two of the five are already in the
+[developer dashboard](https://chrome.google.com/webstore/devconsole): the
+extension id is in the URL of its page, and the publisher id is under Account.
 
-In short: a Google Cloud project → enable the Chrome Web Store API → an OAuth
-client of type Desktop app → exchange a one-time authorization code for a refresh
-token.
+The other three come from the Web Store API, which needs an OAuth client and a
+refresh token. Google's walkthrough is
+<https://developer.chrome.com/docs/webstore/using-api>; the shape of it is a Google
+Cloud project → enable **Chrome Web Store API** → configure the OAuth consent
+screen (External, scope `https://www.googleapis.com/auth/chromewebstore`) → an
+OAuth client of type **Web application** whose authorized redirect URI is
+`https://developers.google.com/oauthplayground` → authorize in the
+[OAuth playground](https://developers.google.com/oauthplayground) with **Use your
+own OAuth credentials** and exchange the code for a refresh token.
 
-Repository secrets:
+**Set the consent screen's publishing status to "In production".** While it is
+"Testing", Google issues refresh tokens that expire after **seven days** — the
+pipeline then works today and fails next week, with an `invalid_grant` that looks
+like a mistyped secret. Verification is not required for this; the "unverified
+app" warning is simply clicked through when authorizing.
 
-| Secret              | Where it comes from                                    |
-| ------------------- | ------------------------------------------------------ |
-| `CWS_CLIENT_ID`     | the OAuth client                                       |
-| `CWS_CLIENT_SECRET` | the OAuth client                                       |
-| `CWS_REFRESH_TOKEN` | the code-for-token exchange                            |
-| `CWS_PUBLISHER_ID`  | Chrome Web Store developer dashboard, account settings |
-| `CWS_EXTENSION_ID`  | the extension's dashboard URL, or its store page       |
+Authorize with the account that owns the extension, or the token will be valid and
+still unable to see the item.
+
+| Secret              | Where it comes from                      |
+| ------------------- | ---------------------------------------- |
+| `CWS_EXTENSION_ID`  | dashboard URL, or the store page URL     |
+| `CWS_PUBLISHER_ID`  | dashboard → Account → Publisher ID       |
+| `CWS_CLIENT_ID`     | the OAuth client                         |
+| `CWS_CLIENT_SECRET` | the OAuth client                         |
+| `CWS_REFRESH_TOKEN` | the playground's code-for-token exchange |
 
 ### addons.mozilla.org
 
 Developer Hub → Manage API Keys generates a JWT issuer and secret. The secret is
-shown once.
+shown once and never again, so a truncated paste is the likely failure and looks
+identical to a wrong one.
 
 | Secret           | Where it comes from |
 | ---------------- | ------------------- |
 | `AMO_JWT_ISSUER` | Manage API Keys     |
 | `AMO_JWT_SECRET` | Manage API Keys     |
+
+### Checking the credentials
+
+Run the **Verify store credentials** workflow (Actions → run it by hand, then
+approve). It exchanges the Chrome refresh token and reads the item, signs an AMO
+JWT and reads the add-on, and reports the version each store currently has — all
+reads, nothing submitted. `node tools/check-store-credentials.mjs` does the same
+locally if the six variables are in the environment.
+
+Worth running before a release, and the first thing to run when a release fails at
+the publish step: it distinguishes a dead credential from a rejected archive.
 
 ## Two things not to break
 
@@ -110,7 +148,7 @@ get an update before you do on Firefox. That is normal, not a failed release.
 
 ## Only you can release
 
-The store credentials live in this repository's secrets and the accounts are
+The store credentials live in the `stores` environment and the accounts are
 personal. If that should not be a single point of failure, add a co-author on AMO
 and use a Chrome Web Store group publisher — both are far easier to set up now
 than to retrofit after a transfer.
