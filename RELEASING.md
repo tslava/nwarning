@@ -120,7 +120,19 @@ newer console is **Google Auth Platform** with the same content split up:
 - _Audience_: user type **External**. Then **Publishing status → In production**
   (the "Publish app" button). See the warning below — this is the step people skip.
 - _Data Access_ (was "Scopes"): **Add or remove scopes** → paste
-  `https://www.googleapis.com/auth/chromewebstore` → Update.
+  `https://www.googleapis.com/auth/chromewebstore` → Update → Save.
+
+  Saving raises **"Verification required — a sensitive scope was added"**, and the
+  page then asks for a written justification and a demo video on YouTube. Click
+  Continue and ignore all of it. Verification is what lets _other people_ grant
+  your app access to _their_ extensions; the only user here is the account that
+  owns this one. The single consequence of staying unverified is the "Google
+  hasn't verified this app" screen when authorizing, which is cleared with
+  **Advanced → Go to … (unsafe)**.
+
+  Verification and publishing status are independent, and only the second one
+  matters for the token's lifetime — an unverified app **in production** still
+  gets a non-expiring refresh token.
 
 **5. The OAuth client.** **Credentials → Create credentials → OAuth client ID**, or
 _Clients → Create client_ in the newer console:
