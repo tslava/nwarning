@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "groups": [
+    {
+      "production": "localhost",
+      "development": ["dev.localhost", "stage.localhost"]
+    }
+  ],
+  "prodSize": 50,
+  "devSize": 50,
+  "bannerPosition": "top",
+  "localStorageKeys": ["use-production-data", "beta-features"]
+}

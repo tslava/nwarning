@@ -15,6 +15,9 @@ coverage/
 .DS_Store
 Thumbs.db
 
+# The image scripts import each other, so Python leaves this behind
+__pycache__/
+
 # Local env
 env.local
 .env.local
