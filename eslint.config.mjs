@@ -29,4 +29,12 @@ export default tseslint.config(
     languageOptions: { globals: { ...globals.node } },
     rules: { '@typescript-eslint/no-require-imports': 'off' },
   },
+  {
+    // Release tooling, which runs on a machine rather than in a browser. Nothing
+    // here ships in either bundle; the extension itself must stay free of node
+    // APIs, which is why the browser globals above are scoped to src.
+    files: ['tools/**/*.mjs'],
+    languageOptions: { globals: { ...globals.node } },
+    rules: { 'no-console': 'off' },
+  },
 );
