@@ -84,7 +84,11 @@ async function checkChrome() {
     );
   }
 
-  return `token exchange ok; item status readable: ${JSON.stringify(body).slice(0, 300)}`;
+  // The response carries the item's public key, which is long, constant and says
+  // nothing about its state — it crowded out the fields worth reading.
+  const status = { ...body };
+  delete status.publicKey;
+  return `token exchange ok; item readable: ${JSON.stringify(status).slice(0, 500)}`;
 }
 
 /** AMO authenticates with a short-lived JWT the caller signs itself. */
