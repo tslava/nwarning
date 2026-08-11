@@ -119,6 +119,12 @@ This is done with document.execCommand('copy') from the content script, which
 requires this permission in Firefox; nothing is ever read from the clipboard.
 ```
 
+This one is new in 2.0.0, and it alone blocked the first publish: Chrome asks for a
+justification per permission and had the others from 1.1 already, so adding a
+permission means adding a justification before that version can go out. Worth
+remembering next time a permission is added — the archive uploads fine and the
+refusal only appears at the publish step.
+
 **Remote code:** No — the extension executes no remote code. Everything it runs is
 in the package, and Manifest V3 forbids anything else.
 
