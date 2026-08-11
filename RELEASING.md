@@ -256,6 +256,23 @@ nothing worth this complication. If you ever turn minification back on, the
 Firefox step needs `--upload-source-code` and something has to keep that archive
 in sync.
 
+## When the publish step fails
+
+Read which step failed before anything else; they are separate on purpose.
+
+- **Upload succeeded, publish refused** — "your submission does not meet the
+  requirements to be published" is about the _listing_, not the archive or the
+  credentials. The version is sitting in the dashboard as a draft, and the dashboard
+  says what is missing. Since 1.1 was published Chrome made the Privacy tab
+  mandatory: single purpose, a justification per permission, and the data-usage
+  certifications. `STORE-LISTING.md` has all of them written out. Fill them in, then
+  either press Publish in the dashboard or re-run the failed job.
+- **Upload failed** — that is the archive or the credentials. Run the credential
+  check; if it passes, the archive is the problem.
+
+Re-running a failed job uses the workflow file **from the tag**, not from `main`, so
+a fix to `release.yml` only takes effect from the next tag onwards.
+
 ## Expect the two stores to diverge
 
 Chrome review is usually quick, AMO's can take longer. Colleagues on Chrome may
