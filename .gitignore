@@ -18,3 +18,13 @@ Thumbs.db
 # Local env
 env.local
 .env.local
+
+# Credentials. The Google Cloud console offers the OAuth client as a download and
+# the browser lands it wherever it lands — once in this directory, where a `git add`
+# swept it into a commit. GitHub's push protection caught that one; this is so
+# there is no second time.
+client_secret*.json
+*.pem
+*.p12
+*.pkcs12
+*.key
