@@ -19,7 +19,13 @@
 
 import { createHmac, randomUUID } from 'node:crypto';
 
-const CHROME_VARS = ['CWS_CLIENT_ID', 'CWS_CLIENT_SECRET', 'CWS_REFRESH_TOKEN', 'CWS_EXTENSION_ID'];
+const CHROME_VARS = [
+  'CWS_CLIENT_ID',
+  'CWS_CLIENT_SECRET',
+  'CWS_REFRESH_TOKEN',
+  'CWS_EXTENSION_ID',
+  'CWS_PUBLISHER_ID',
+];
 const FIREFOX_VARS = ['AMO_JWT_ISSUER', 'AMO_JWT_SECRET'];
 
 /** The add-on id AMO knows this extension by; changing it registers a different add-on. */
@@ -35,7 +41,13 @@ function required(names) {
 async function checkChrome() {
   required(CHROME_VARS);
 
-  const token = await fetch('https://oauth2.googleapis.com/token', {
+  // Both the token endpoint and the item URL below are the ones
+  // chrome-webstore-upload uses, deliberately: a check that reads a different API
+  // than the release writes to can pass while the release fails. It reached the
+  // old v1.1 endpoint at first, which has no notion of a publisher id at all —
+  // so a wrong or missing CWS_PUBLISHER_ID went unnoticed here and broke the
+  // upload.
+  const token = await fetch('https://www.googleapis.com/oauth2/v4/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
@@ -55,19 +67,24 @@ async function checkChrome() {
     );
   }
 
-  const id = process.env.CWS_EXTENSION_ID;
+  const publisher = process.env.CWS_PUBLISHER_ID;
+  const extension = process.env.CWS_EXTENSION_ID;
+  // fetchStatus is the only read in the v2 API, and it takes the same path the
+  // upload and publish calls do.
   const item = await fetch(
-    `https://www.googleapis.com/chromewebstore/v1.1/items/${encodeURIComponent(id)}?projection=DRAFT`,
-    { headers: { Authorization: `Bearer ${granted.access_token}`, 'x-goog-api-version': '2' } },
+    `https://chromewebstore.googleapis.com/v2/publishers/${encodeURIComponent(publisher)}/items/${encodeURIComponent(extension)}:fetchStatus`,
+    { headers: { Authorization: `Bearer ${granted.access_token}` } },
   );
 
-  const body = await item.json();
+  const body = await item.json().catch(() => ({}));
   if (!item.ok) {
     const detail = body?.error?.message ?? JSON.stringify(body).slice(0, 200);
-    throw new Error(`cannot read item ${id} (${item.status}: ${detail})`);
+    throw new Error(
+      `cannot read the item (${item.status}: ${detail}) — a 403 usually means the Chrome Web Store API is not enabled on the Cloud project, a 404 means the publisher or extension id is wrong, or the authorising account does not own the item`,
+    );
   }
 
-  return `token exchange ok; item ${body.id ?? id} readable, uploadState=${body.uploadState ?? '?'}, draft version ${body.crxVersion ?? 'unknown'}`;
+  return `token exchange ok; item status readable: ${JSON.stringify(body).slice(0, 300)}`;
 }
 
 /** AMO authenticates with a short-lived JWT the caller signs itself. */
