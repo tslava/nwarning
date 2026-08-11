@@ -263,6 +263,27 @@ silently pick one. Removing it deleted that whole path — the `commands` manife
 key, the tab plumbing in `PlatformAPI`, and the content script's inbound message
 handler. `background.ts` now exists only to badge tabs.
 
+The target URL is built by `utils/parameters.ts`, not by setting `hostname` alone.
+Some consoles encode the environment twice and obey the copy in the query string:
+the AWS console's region is both the first hostname label and `?region=`, so swapping
+only the host sends you back where you were and switching looks like it does nothing.
+`SITE_RULES` names those sites and drops the offending parameter, from a query inside
+the hash as well as from the real one.
+
+A general rule was written first — translate any hostname label that changed wherever
+it appears as a parameter value — and it is cleverer, but it fires on every group
+whether the site cares or not, and a short label like `app` or `test` is a plausible
+value of an unrelated parameter. Naming the sites cannot misfire anywhere else. Adding
+a cloud is one line; if that table stops being readable at a glance, that is the
+signal to generalise after all. This is not the banned kind of hardcoding — these are
+public services behaving the same for everyone, nearer a browser's
+site-compatibility list than configuration, and no user's own host appears.
+
+Note the premise, which is unverified: dropping `region` assumes the console falls
+back to the region in the hostname. If it ever turns out to prefer a remembered
+region instead, the fix is to set the parameter from the target host's first label
+rather than delete it.
+
 Menu items sit on white, so they must not use the banner's accent colours as text:
 `#17b417` on white is 2.8:1. Stands are neutral dark, production is a darker red at
 5.6:1.

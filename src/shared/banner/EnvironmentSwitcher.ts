@@ -3,6 +3,7 @@
  */
 
 import { translateHostname } from '../utils/patterns';
+import { switchedUrl } from '../utils/parameters';
 import type { EnvironmentMatch } from '../utils/environment';
 
 export interface SwitchTarget {
@@ -34,11 +35,11 @@ export class EnvironmentSwitcher {
       const hostname = translateHostname(url.hostname, pattern, candidate);
       if (!hostname || hostname === url.hostname) continue;
 
-      const target = new URL(url.toString());
-      target.hostname = hostname;
       targets.push({
         hostname,
-        url: target.toString(),
+        // Not just the hostname: a console can encode the same fact in a parameter
+        // too, and then the parameter is the one that decides. See switchedUrl.
+        url: switchedUrl(url.toString(), hostname),
         isProduction: candidate === group.production,
       });
     }

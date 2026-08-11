@@ -10,7 +10,8 @@ A browser extension that helps developers easily switch between production and d
 - 🎯 One production host with as many dev, staging and QA stands as you need
 - 🙈 Hide the banner for a single page view without disabling anything
 - 🎨 Customizable banner size and position (top or bottom of the page)
-- 🔗 Keeps the path, query and hash when switching
+- 🔗 Keeps the path, query and hash when switching — and drops the AWS console's
+  `region` parameter, which would otherwise send you back to the region you left
 - 🔍 Wildcard hostname pattern matching
 - 🔒 Local storage variable monitoring
 - ☁️ Settings follow your browser profile, and can be exported as JSON
