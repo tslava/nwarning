@@ -139,10 +139,15 @@ const firefoxPlatform: PlatformAPI = {
     },
   },
 
-  setBadge: async ({ tabId, text, color }) => {
+  setBadge: async ({ tabId, text, color, textColor }) => {
     await browser.action.setBadgeText({ tabId, text });
     if (text && color) {
       await browser.action.setBadgeBackgroundColor({ tabId, color });
+    }
+    // Firefox has had this since 63, but the guard costs nothing and keeps the two
+    // implementations reading the same.
+    if (text && textColor && browser.action.setBadgeTextColor) {
+      await browser.action.setBadgeTextColor({ tabId, color: textColor });
     }
   },
 

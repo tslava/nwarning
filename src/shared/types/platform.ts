@@ -42,7 +42,13 @@ export interface PlatformAPI {
    * Badge a single tab's toolbar icon. Empty text clears it. Background context
    * only — the action API is not exposed to content scripts.
    */
-  setBadge: (options: { tabId: number; text: string; color?: string }) => Promise<void>;
+  setBadge: (options: {
+    tabId: number;
+    text: string;
+    color?: string;
+    /** Badge text is drawn on `color`, so it cannot be left to the default. */
+    textColor?: string;
+  }) => Promise<void>;
 
   /**
    * `sync` is where settings live, so a configuration follows the browser

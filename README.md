@@ -5,7 +5,7 @@ A browser extension that helps developers easily switch between production and d
 ## Features
 
 - 🚦 Clear visual indicators: red banner for production, green for everything else
-- 🏷️ `PROD` / `DEV` badge on the toolbar icon, visible even with the banner hidden
+- 🏷️ `P` / `D` badge on the toolbar icon, visible even with the banner hidden
 - 🔄 Switch between any hosts in a group from the banner
 - 🎯 One production host with as many dev, staging and QA stands as you need
 - 🙈 Hide the banner for a single page view without disabling anything
@@ -230,8 +230,8 @@ use.
 
 ## Usage
 
-- **Red banner / `PROD` badge**: production
-- **Green banner / `DEV` badge**: a non-production stand
+- **Red banner / red `P` badge**: production
+- **Green banner / green `D` badge**: a non-production stand
 - **Warning chips**: monitored localStorage values, highlighted when switched on;
   click one to flip it and open the page again in a new tab, where the app reads it
 - **Copy button**: copies the current URL's parameters — from the query string, or
