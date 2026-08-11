@@ -86,12 +86,23 @@ Google's own walkthrough is
 <https://developer.chrome.com/docs/webstore/using-api>. Console labels moved in the
 2025 redesign, so both names are given below.
 
-**1. Two values you already have.** In the
-[developer dashboard](https://chrome.google.com/webstore/devconsole):
+**1. Two values you already have, both in one URL.** In the
+[developer dashboard](https://chrome.google.com/webstore/devconsole), open the
+extension itself and read the address bar:
 
-- open the extension — its id is the long letter string in the page URL. That is
-  `CWS_EXTENSION_ID`.
-- **Account** in the left sidebar → **Publisher ID**. That is `CWS_PUBLISHER_ID`.
+```
+https://chrome.google.com/webstore/devconsole/ab12cd34-.../eokbkdojkjdmphhfcm.../edit
+                                              ^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^
+                                              publisher id  extension id
+```
+
+The segment after `devconsole` is `CWS_PUBLISHER_ID` — the identifier of your
+developer account. The next one, 32 letters, is `CWS_EXTENSION_ID`.
+
+Do not look for a "Publisher ID" field on the Account page: that page is about
+_group publishers_, a separate thing you have to create, and an account that has
+never created one shows nothing there. The publisher id an individual account
+uploads with is the one in the URL above.
 
 **2. A Google Cloud project.** [console.cloud.google.com](https://console.cloud.google.com)
 → project picker at the top → **New project** → any name → Create, then make sure
@@ -191,10 +202,14 @@ gh run watch "$(gh run list --workflow 'Verify store credentials' --limit 1 --js
 Or Actions → **Verify store credentials** → Run workflow. Either way it waits for
 your approval first, because the credentials live in the `stores` environment.
 
-It exchanges the Chrome refresh token and reads the item, signs an AMO JWT and
-reads the add-on, and reports the version each store currently has — all reads,
-nothing submitted. `store` takes `chrome`, `firefox` or `both`, so each half can be
-checked as it is set up.
+It exchanges the Chrome refresh token and fetches the item's status, signs an AMO
+JWT and reads the add-on — all reads, nothing submitted. `store` takes `chrome`,
+`firefox` or `both`, so each half can be checked as it is set up.
+
+The Chrome half deliberately calls the same v2 endpoint the upload does,
+`chromewebstore.googleapis.com/v2/publishers/{publisherId}/items/{extensionId}`,
+because the old v1.1 API has no notion of a publisher id: checking against that
+one passes with a wrong `CWS_PUBLISHER_ID` and the release then fails.
 
 `node tools/check-store-credentials.mjs [chrome|firefox]` does the same locally if
 the variables are in the environment, which is the faster loop while fixing a bad
