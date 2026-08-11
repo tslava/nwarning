@@ -220,7 +220,7 @@ then resolves as two grey columns — measurably, not as a matter of taste.
 
 What counts as "the parameters" is `currentUrlParameters()`, not `location.search`.
 Front ends commonly keep filter state in the hash —
-`/devices/incidents-history#?limit=20&offset=0` — where `search` is empty while the
+`/reports/history#?limit=20&offset=0` — where `search` is empty while the
 address bar plainly shows parameters, so reading `search` alone reported "nothing to
 copy" about a URL full of them. When the whole hash is a query the leading `#` is
 kept so the copied text pastes back and reproduces the view.

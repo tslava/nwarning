@@ -452,7 +452,7 @@ export class BannerRenderer {
  * The parameter portion of the current URL, as the address bar shows it.
  *
  * Not simply `location.search`: plenty of front ends keep filter state in the
- * hash — `/devices/incidents-history#?limit=20&offset=0` — where `search` is empty
+ * hash — `/reports/history#?limit=20&offset=0` — where `search` is empty
  * while the address bar plainly shows parameters. Reading only `search` there
  * reports "nothing to copy" about a URL full of parameters.
  *
