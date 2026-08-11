@@ -67,6 +67,16 @@ matters only as the ceiling the release job's `contents: write` needs; the
 publish job, which is the one holding store credentials, declares `{}` and gets
 no repository access.
 
+### Store credentials — done
+
+Set as environment secrets and verified against both live stores on 2026-08-11.
+Both stores had **1.1** published at that point, Chrome at 100% deploy with nothing
+pending review, the AMO listing public.
+
+The Chrome consent screen is "In production", so its refresh token does not expire
+on the seven-day rule. It can still be revoked or invalidated another way, which is
+what the check below is for.
+
 ### Where the secrets go
 
 Into the **`stores` environment**, not the repository's own secrets:
