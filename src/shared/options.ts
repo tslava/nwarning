@@ -9,12 +9,15 @@ import type { PermissionsPort } from './types/platform';
 const GROUP_ROW = 'env-group';
 const TRANSFER_FILENAME = 'environment-switcher-settings.json';
 const KEY_ROW = 'local-storage-key-row';
+/** How long a toast stays up. Long enough to read a validation error in full. */
+const STATUS_MS = 4000;
 
 export class OptionsManager {
   private readonly groupsContainer: HTMLElement;
   private readonly keysContainer: HTMLElement;
   private readonly saveButton: HTMLButtonElement;
   private readonly status: HTMLElement;
+  private statusTimer: number | null = null;
   private readonly prodSizeSelect: HTMLSelectElement;
   private readonly devSizeSelect: HTMLSelectElement;
   private readonly bannerPositionSelect: HTMLSelectElement;
@@ -323,13 +326,30 @@ export class OptionsManager {
     row.classList.toggle('has-error', message !== null);
   }
 
+  /**
+   * Say what just happened, in a toast fixed to the viewport.
+   *
+   * The timer is kept and cleared: every call used to start another one, so a second
+   * message inherited the first one's remaining time and could vanish a moment after
+   * appearing.
+   */
   private showStatus(message: string, kind: 'success' | 'error'): void {
+    if (this.statusTimer !== null) clearTimeout(this.statusTimer);
+
     this.status.textContent = message;
     this.status.className = `status ${kind}`;
-    this.status.style.display = 'block';
-    window.setTimeout(() => {
-      this.status.style.display = 'none';
-    }, 4000);
+
+    // Hidden and shown again, with a layout read in between, so a message that
+    // replaces a visible one plays the appear animation rather than swapping
+    // silently — otherwise two saves in a row look like one.
+    this.status.hidden = true;
+    void this.status.offsetWidth;
+    this.status.hidden = false;
+
+    this.statusTimer = window.setTimeout(() => {
+      this.statusTimer = null;
+      this.status.hidden = true;
+    }, STATUS_MS);
   }
 }
 

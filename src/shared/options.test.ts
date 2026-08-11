@@ -298,6 +298,31 @@ describe('options page: saving', () => {
     expect(statusText()).toBe('Settings saved');
   });
 
+  it('makes the result visible, not merely present in the DOM', async () => {
+    await open(new FakeStorage());
+    const status = document.getElementById('status') as HTMLElement;
+
+    // The element starts hidden and the page is long: the whole point is that
+    // something appears where the user is looking when they press the button.
+    expect(status.hidden).toBe(true);
+    await clickSave();
+    expect(status.hidden).toBe(false);
+    expect(status.className).toContain('success');
+
+    // A failure has to be visible on the same terms.
+    fillRow(groupRows()[0], 'two words', 'dev.example.com');
+    await clickSave();
+    expect(status.hidden).toBe(false);
+    expect(status.className).toContain('error');
+  });
+
+  it('announces itself to a screen reader', async () => {
+    await open(new FakeStorage());
+    const status = document.getElementById('status') as HTMLElement;
+    expect(status.getAttribute('role')).toBe('status');
+    expect(status.getAttribute('aria-live')).toBe('polite');
+  });
+
   it('refuses the whole save when a row is invalid, and says why', async () => {
     const storage = new FakeStorage();
     await open(storage);
