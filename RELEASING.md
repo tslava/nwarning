@@ -40,11 +40,21 @@ None of this can be automated; it all involves signing in as a human.
 
 Configured on 2026-08-03; recorded here so it is not redone or silently undone.
 
-| Setting                                   | Value                 |
-| ----------------------------------------- | --------------------- |
-| Environment `stores`, required reviewer   | `tslava`              |
-| Environment `stores`, deployment branches | tag pattern `v*` only |
-| Actions → default workflow permissions    | write                 |
+| Setting                                   | Value                           |
+| ----------------------------------------- | ------------------------------- |
+| Environment `stores`, required reviewer   | `tslava`                        |
+| Environment `stores`, deployment branches | tag pattern `v*`, branch `main` |
+| Actions → default workflow permissions    | write                           |
+
+Both entries in that policy are needed and for different reasons. The `v*` tag is
+what a release runs from. `main` is what the credential check runs from — it is
+started by hand rather than by a tag, and without the branch in the policy it
+fails before it starts, with `Branch not allowed to deploy to stores`. Add it with:
+
+```bash
+echo '{"name":"main","type":"branch"}' |
+  gh api -X POST repos/tslava/nwarning/environments/stores/deployment-branch-policies --input -
+```
 
 Note that an environment named in a workflow but **not** created in the
 repository is created implicitly, with no protection at all — so the approval
