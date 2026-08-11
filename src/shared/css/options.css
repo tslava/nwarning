@@ -182,6 +182,13 @@ h3 {
 
 .transfer-area {
   box-sizing: border-box;
+  /*
+   * Block, not the textarea default of inline-block: on a baseline it takes space
+   * for a descender under it, and how much differs by browser — Chrome left a few
+   * pixels above the button row and Firefox left none, so the row sat flush
+   * against the box. The gap belongs to .transfer-actions below, in one place.
+   */
+  display: block;
   width: 100%;
   padding: 10px 12px;
   border: 1px solid #ddd;
@@ -211,6 +218,11 @@ h3 {
   display: flex;
   align-items: center;
   gap: 10px;
+  /*
+   * Stated here rather than inherited: these buttons used to borrow `.add-key`,
+   * whose margin-top happened to provide this gap, and aligning the row removed it.
+   */
+  margin-top: 14px;
 }
 
 .transfer-actions button {
