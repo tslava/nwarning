@@ -192,6 +192,26 @@ developer, environment, staging, production, localhost, banner
 
 AMO accepts the same 1280×800 screenshots, so one set covers both stores.
 
+### What is in `store/`
+
+Taken against `tools/demo-page/` with the extension really installed, so every one
+of them is the product running rather than a mock-up:
+
+| File                           | Shows                                                       |
+| ------------------------------ | ----------------------------------------------------------- |
+| `screenshot-1-production.png`  | red banner, and the site's own fixed header moved below it  |
+| `screenshot-2-flags.png`       | a red chip on a green banner — dev page, production data    |
+| `screenshot-3-switch-menu.png` | the switch menu, production in red and the stand in neutral |
+| `screenshot-4-copy.png`        | the copy button's result said out loud, not just in `title` |
+
+One caveat if they are re-taken: Chrome remembers page zoom **per origin**, so
+`localhost` and `dev.localhost` can render at different scales in the same window
+and the set then looks inconsistent. Match the zoom on both before capturing.
+
+The 1280×800 conversion pads the bottom in the page's own background colour rather
+than cropping the sides, because the banner's copy button and close button sit at
+the extreme edges and a crop to the 1.6 aspect ratio cuts them off.
+
 ### What each screenshot should show
 
 Ordered so the first one alone explains the extension, since it is the only one many
