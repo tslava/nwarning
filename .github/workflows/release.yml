@@ -115,7 +115,13 @@ jobs:
 
       # No --upload-source-code: the bundle is not minified, so AMO has readable
       # code already. Keep it that way, or this needs a source archive too.
+      #
+      # Runs even when the Chrome steps failed. The two stores are independent, and
+      # coupling them means a metadata problem in one holds the other back for days:
+      # 2.0.0's Chrome publish was refused for an incomplete listing, and Firefox --
+      # which had nothing wrong with it -- was skipped for that reason alone.
       - name: Submit to addons.mozilla.org
+        if: ${{ !cancelled() }}
         run: >
           npx web-ext sign
           --source-dir dist/firefox
