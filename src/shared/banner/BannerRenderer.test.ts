@@ -369,7 +369,7 @@ describe('BannerRenderer copy', () => {
   });
 
   it('copies parameters that live in the hash', async () => {
-    history.replaceState({}, '', '/devices/incidents-history#?limit=20&offset=0&owner=1');
+    history.replaceState({}, '', '/reports/history#?limit=20&offset=0&owner=1');
     let copied: string | undefined;
     document.execCommand = vi.fn().mockImplementation(() => {
       copied = document.querySelector<HTMLTextAreaElement>('textarea')?.value;
@@ -483,8 +483,8 @@ describe('currentUrlParameters', () => {
   });
 
   it('returns hash parameters, keeping the hash so they can be pasted back', () => {
-    expect(at('/devices/incidents-history#?limit=20&offset=0&owner=1&projects=525')).toBe(
-      '#?limit=20&offset=0&owner=1&projects=525',
+    expect(at('/reports/history#?limit=20&offset=0&owner=1&filter=3')).toBe(
+      '#?limit=20&offset=0&owner=1&filter=3',
     );
   });
 
