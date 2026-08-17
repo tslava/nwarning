@@ -240,6 +240,20 @@ value.
 Worth running before a release, and the first thing to run when a release fails at
 the publish step: it distinguishes a dead credential from a rejected archive.
 
+It also answers "what is actually in the store right now", which is the question the
+dashboard is worst at. Chrome reports the two states separately:
+
+```json
+publishedItemRevisionStatus:  { "state": "PUBLISHED",      "crxVersion": "2.0.0" }
+submittedItemRevisionStatus:  { "state": "PENDING_REVIEW", "crxVersion": "2.0.1" }
+```
+
+That pair settled a real doubt: the dashboard showed 2.0.1 as a draft while the API
+showed it submitted and in the queue. The package's state and the listing's unsaved
+edits are different things in that UI, and only the first one is visible here — so a
+"Draft" badge that outlives a review is listing edits waiting for their own
+submission, not a lost upload.
+
 ## Two things not to break
 
 **The Firefox add-on id.** `environment-switcher@example.com` in
