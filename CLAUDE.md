@@ -93,9 +93,15 @@ settings propagation.
 `src/shared/utils/patterns.ts`. A `*` matches exactly **one** label (`[^.]+`), so
 `*.example.com` matches `app.example.com` but not `example.com` or
 `a.b.example.com`. Multiple wildcards are supported and each captured label is
-carried across to the target pattern in order. Validation requires every host in
-a group to have the same wildcard count, otherwise switching would translate one
-way and fail the other.
+carried across to the target pattern in order. Validation requires a stand's
+wildcard count to either match production's or be zero on one side — equal
+counts translate both ways, and a fixed host (0 wildcards) on either side still
+translates one way, into the fixed host. Two different nonzero counts translate
+neither way (the captured labels on one side have nowhere to go on the other),
+so that combination is rejected. This is what lets a wildcarded S3 bucket
+(`*.example.com.s3-website.eu-west-2.amazonaws.com`) pair with one fixed
+production host: the stand switches to production, even though production has
+no single stand to switch back to.
 
 User input is normalized to a bare hostname before matching
 (`config/validation.ts`); matching runs against `location.hostname`.

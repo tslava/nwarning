@@ -118,15 +118,25 @@ describe('validateGroup', () => {
     });
   });
 
-  it('requires every stand to have the production wildcard count', () => {
-    expect(validateGroup('*.example.com', ['dev.example.com'])).toMatchObject({ ok: false });
-    expect(validateGroup('example.com', ['*.dev.example.com'])).toMatchObject({ ok: false });
-    expect(
-      validateGroup('*.example.com', ['*.dev.example.com', 'staging.example.com']),
-    ).toMatchObject({ ok: false });
+  it('allows a stand to match the production wildcard count', () => {
     expect(
       validateGroup('*.example.com', ['*.dev.example.com', '*.staging.example.com']),
     ).toMatchObject({ ok: true });
+  });
+
+  it('allows a fixed host paired with a wildcarded one on either side', () => {
+    // Fixed production, wildcarded stand — switching only works stand -> production.
+    expect(validateGroup('example.com', ['*.dev.example.com'])).toMatchObject({ ok: true });
+    // Wildcarded production, fixed stand — switching only works production -> stand.
+    expect(validateGroup('*.example.com', ['dev.example.com'])).toMatchObject({ ok: true });
+    // Mixing a matching wildcard count with a fixed host in the same group.
+    expect(
+      validateGroup('*.example.com', ['*.dev.example.com', 'staging.example.com']),
+    ).toMatchObject({ ok: true });
+  });
+
+  it('rejects two different nonzero wildcard counts, which translate neither way', () => {
+    expect(validateGroup('*.example.com', ['*.*.dev.example.com'])).toMatchObject({ ok: false });
   });
 
   it('reports which side is invalid', () => {

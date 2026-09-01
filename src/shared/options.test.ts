@@ -347,11 +347,11 @@ describe('options page: saving', () => {
     expect(readRow(groupRows()[0]).error).toContain('every site');
   });
 
-  it('rejects mismatched wildcard counts, which only switch one way', async () => {
+  it('rejects two different nonzero wildcard counts, which switch neither way', async () => {
     const storage = new FakeStorage();
     await open(storage);
 
-    fillRow(groupRows()[0], '*.example.com', 'dev.example.com');
+    fillRow(groupRows()[0], '*.example.com', '*.*.dev.example.com');
     await clickSave();
 
     expect(storage.lastWrite('groups')).toBeUndefined();
