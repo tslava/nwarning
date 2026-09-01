@@ -57,9 +57,14 @@ export type GroupValidationResult =
 /**
  * Validate a production host together with its non-production hosts.
  *
- * Every non-production host must carry the same number of wildcards as the
- * production one: switching goes both ways, so `*.example.com` paired with a
- * fixed `dev.example.com` would translate one way and silently fail the other.
+ * A non-production host's wildcard count must either match production's or be
+ * zero on one side. Equal counts translate both ways. A fixed host (0
+ * wildcards) on either side still translates one way — into the fixed host,
+ * always; out of it, only when the other side is also fixed — which is enough
+ * for cases like a wildcarded S3 bucket paired with one fixed production host.
+ * Two different nonzero counts translate neither way, since the wildcards
+ * captured on one side never line up with the slots on the other, so that
+ * combination is rejected.
  */
 export function validateGroup(production: string, developments: string[]): GroupValidationResult {
   const prod = validateHostPattern(production);
@@ -80,12 +85,14 @@ export function validateGroup(production: string, developments: string[]): Group
     if (dev.value === prod.value) {
       return { ok: false, error: `"${dev.value}" is already the production host` };
     }
-    if (countWildcards(dev.value) !== prodWildcards) {
+    const devWildcards = countWildcards(dev.value);
+    if (devWildcards !== prodWildcards && devWildcards !== 0 && prodWildcards !== 0) {
       return {
         ok: false,
         error:
-          `"${dev.value}" has ${countWildcards(dev.value)} wildcard(s) but production ` +
-          `"${prod.value}" has ${prodWildcards} — they must match so switching works both ways`,
+          `"${dev.value}" has ${devWildcards} wildcard(s) but production ` +
+          `"${prod.value}" has ${prodWildcards} — they must match, or one side must have none, ` +
+          `so switching works at least one way`,
       };
     }
 

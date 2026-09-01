@@ -56,7 +56,7 @@ describe('SettingsManager.load', () => {
       groups: [
         { production: 'example.com', development: ['dev.example.com'] },
         { production: '*', development: ['dev.example.com'] },
-        { production: '*.example.com', development: ['dev.example.com'] },
+        { production: '*.example.com', development: ['*.*.dev.example.com'] },
         { production: 'lonely.example.com', development: [] },
         { nonsense: true },
       ],

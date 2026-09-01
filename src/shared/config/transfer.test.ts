@@ -79,7 +79,7 @@ describe('importSettings', () => {
         groups: [
           { production: 'good.com', development: ['dev.good.com'] },
           { production: '*', development: ['dev.com'] },
-          { production: '*.wild.com', development: ['fixed.com'] },
+          { production: '*.wild.com', development: ['*.*.fixed.com'] },
           { production: 'nostands.com', development: [] },
           'nonsense',
         ],
