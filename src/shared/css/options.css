@@ -94,6 +94,28 @@ h3 {
   padding: 5px;
 }
 
+/* Line the headers up with the row below, which is 2fr name and 3fr hosts. */
+.local-storage-header .key-field-header:nth-child(1) {
+  flex: 2;
+}
+
+.local-storage-header .key-field-header:nth-child(2) {
+  flex: 3;
+}
+
+/*
+ * A fixed width rather than a minimum, because it is what keeps the two flexible
+ * columns to the left the same width as the row's: the heading is wider than the
+ * select under it and is allowed to run into the space above the Delete button,
+ * which the margin reserves.
+ */
+.local-storage-header .key-field-header:nth-child(3) {
+  flex: none;
+  width: 110px;
+  margin-right: 74px;
+  white-space: nowrap;
+}
+
 .env-group,
 .local-storage-key-row {
   display: flex;
@@ -102,6 +124,15 @@ h3 {
   gap: 10px;
   /* Lets the validation message wrap onto its own line below the inputs. */
   flex-wrap: wrap;
+}
+
+/*
+ * A key row is as tall as its host checkboxes, so its own fields sit at the top
+ * rather than floating in the middle of that column.
+ */
+.local-storage-key-row {
+  align-items: flex-start;
+  margin-bottom: 16px;
 }
 
 .row-error {
@@ -115,12 +146,87 @@ h3 {
   border-color: #dc3545;
 }
 
+/*
+ * Named rather than "every input in the row": the row now also holds host
+ * checkboxes, and a checkbox stretched to `flex: 1` came out as a wide grey slab.
+ */
 .env-group input,
-.local-storage-key-row input {
-  flex: 1;
+.local-storage-key-row .key-name {
+  flex: 2;
   padding: 8px 12px;
   border: 1px solid #ddd;
   border-radius: 4px;
+  font-size: 14px;
+}
+
+.key-hosts {
+  flex: 3;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px 10px;
+  min-width: 0;
+}
+
+/*
+ * The sides sit beside each other and share the column, rather than each taking
+ * its content's width and pushing the other onto a line of its own — which left
+ * the row three fieldsets tall next to an empty half of the page.
+ */
+.key-host-group {
+  /* Content-sized, then sharing what is left: a fixed basis broke hostnames
+     across lines while the column still had room. */
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding: 4px 10px 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.key-host-group legend {
+  padding: 0 4px;
+  color: #2c3e50;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.key-host-group label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  color: #333;
+  font-size: 13px;
+  cursor: pointer;
+  /* A long wildcard pattern wraps rather than widening the row. */
+  overflow-wrap: anywhere;
+}
+
+.key-host-group input[type='checkbox'] {
+  flex: none;
+  margin: 0;
+  accent-color: #17b417;
+}
+
+/*
+ * Nothing ticked means every configured host, which an empty box of checkboxes
+ * does not say by itself.
+ */
+.key-hosts-hint {
+  flex-basis: 100%;
+  margin: 0;
+  color: #555;
+  font-size: 12px;
+}
+
+.key-value {
+  flex: none;
+  min-width: 110px;
+  padding: 8px 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: #fff;
   font-size: 14px;
 }
 
@@ -130,7 +236,8 @@ h3 {
 }
 
 .env-group input:focus,
-.local-storage-key-row input:focus {
+.local-storage-key-row .key-name:focus,
+.key-value:focus {
   outline: none;
   border-color: #17b417;
   box-shadow: 0 0 0 2px rgba(23, 180, 23, 0.1);

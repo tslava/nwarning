@@ -62,8 +62,60 @@ function readRow(row: HTMLElement): { production: string; development: string; e
 }
 
 function fillRow(row: HTMLElement, production: string, development: string): void {
-  row.querySelector<HTMLInputElement>('.group-production')!.value = production;
-  row.querySelector<HTMLInputElement>('.group-development')!.value = development;
+  const production_ = row.querySelector<HTMLInputElement>('.group-production')!;
+  const development_ = row.querySelector<HTMLInputElement>('.group-development')!;
+  production_.value = production;
+  development_.value = development;
+  // As typing does: the host checkboxes on the key rows below follow these
+  // fields, and they only follow them because of this event.
+  for (const input of [production_, development_]) {
+    input.dispatchEvent(new Event('input'));
+  }
+}
+
+function keyRows(): HTMLElement[] {
+  return [...document.querySelectorAll<HTMLElement>('.local-storage-key-row')];
+}
+
+function readKeyRow(row: HTMLElement): { key: string; value: string; hosts: string[] } {
+  return {
+    key: row.querySelector<HTMLInputElement>('.key-name')!.value,
+    value: row.querySelector<HTMLSelectElement>('.key-value')!.value,
+    hosts: [...row.querySelectorAll<HTMLInputElement>('.key-host')]
+      .filter((box) => box.checked)
+      .map((box) => box.value),
+  };
+}
+
+/** The offered hosts, by the section they are offered under. */
+function hostChoices(row: HTMLElement): Record<string, string[]> {
+  const sections: Record<string, string[]> = {};
+  for (const fieldset of row.querySelectorAll<HTMLElement>('.key-host-group')) {
+    const caption = fieldset.querySelector('legend')?.textContent ?? '';
+    sections[caption] = [...fieldset.querySelectorAll<HTMLInputElement>('.key-host')].map(
+      (box) => box.value,
+    );
+  }
+  return sections;
+}
+
+function tickHost(row: HTMLElement, host: string): void {
+  const box = [...row.querySelectorAll<HTMLInputElement>('.key-host')].find(
+    (candidate) => candidate.value === host,
+  );
+  if (!box) throw new Error(`no checkbox offered for ${host}`);
+  box.checked = true;
+  box.dispatchEvent(new Event('change'));
+}
+
+function hostHint(row: HTMLElement): string {
+  const hint = row.querySelector<HTMLElement>('.key-hosts-hint');
+  return hint && !hint.hidden ? (hint.textContent ?? '') : '';
+}
+
+function addKeyRow(): HTMLElement {
+  document.getElementById('addKeyButton')?.dispatchEvent(new MouseEvent('click'));
+  return keyRows()[keyRows().length - 1];
 }
 
 function clickSave(): Promise<void> {
@@ -142,13 +194,70 @@ describe('options page: loading', () => {
     expect((document.getElementById('devSize') as HTMLSelectElement).value).toBe('30');
   });
 
-  it('renders tracked localStorage keys', async () => {
-    await open(new FakeStorage({ localStorageKeys: ['use-prod-db', 'feature-x'] }));
-    expect(
-      [...document.querySelectorAll<HTMLInputElement>('.local-storage-key-row input')].map(
-        (input) => input.value,
-      ),
-    ).toEqual(['use-prod-db', 'feature-x']);
+  it('renders tracked keys with their hosts and value', async () => {
+    await open(
+      new FakeStorage({
+        groups: [{ production: 'app.example.com', development: ['dev.example.com'] }],
+        trackedKeys: [
+          { key: 'use-prod-db', hosts: ['dev.example.com'], value: 'true' },
+          { key: 'feature-x', hosts: [], value: '1' },
+        ],
+      }),
+    );
+
+    expect(keyRows().map(readKeyRow)).toEqual([
+      { key: 'use-prod-db', value: 'true', hosts: ['dev.example.com'] },
+      { key: 'feature-x', value: '1', hosts: [] },
+    ]);
+    // Ticked from the configured groups, and which side a host is on is part of
+    // the decision, so the two sides are offered apart.
+    expect(hostChoices(keyRows()[0])).toEqual({
+      Production: ['app.example.com'],
+      'Non-production': ['dev.example.com'],
+    });
+  });
+
+  it('says what an empty selection means, since an empty box does not', async () => {
+    await open(
+      new FakeStorage({
+        groups: [{ production: 'app.example.com', development: ['dev.example.com'] }],
+        trackedKeys: [{ key: 'flag', hosts: [], value: '1' }],
+      }),
+    );
+
+    expect(hostHint(keyRows()[0])).toContain('every configured host');
+
+    tickHost(keyRows()[0], 'dev.example.com');
+    expect(hostHint(keyRows()[0])).toBe('');
+  });
+
+  it('offers a host as soon as it is typed above, before any save', async () => {
+    await open(new FakeStorage());
+    const row = addKeyRow();
+
+    fillRow(groupRows()[0], 'HTTPS://App.Example.com/login', 'dev.example.com, *.qa.example.com');
+
+    // Normalized, so what is ticked here is what will be stored below.
+    expect(hostChoices(row)).toEqual({
+      Production: ['app.example.com'],
+      'Non-production': ['dev.example.com', '*.qa.example.com'],
+    });
+  });
+
+  it('keeps a ticked host that has left the groups, rather than widening the key', async () => {
+    await open(
+      new FakeStorage({
+        groups: [{ production: 'app.example.com', development: ['dev.example.com'] }],
+        trackedKeys: [{ key: 'flag', hosts: ['dev.example.com'], value: '1' }],
+      }),
+    );
+
+    fillRow(groupRows()[0], 'app.example.com', 'other.example.com');
+
+    // Dropping it would turn "only on this host" into "on every host", which is
+    // the opposite instruction, so it stays ticked and says where it stands.
+    expect(hostChoices(keyRows()[0])['No longer in a group']).toEqual(['dev.example.com']);
+    expect(readKeyRow(keyRows()[0]).hosts).toEqual(['dev.example.com']);
   });
 });
 
@@ -263,7 +372,7 @@ describe('options page: import and export', () => {
       prodSize: 150,
       devSize: 30,
       bannerPosition: 'bottom',
-      localStorageKeys: ['use-prod-db'],
+      trackedKeys: [{ key: 'use-prod-db', hosts: ['dev.example.com'], value: 'false' }],
     });
     await open(source);
     await click('exportButton');
@@ -278,7 +387,9 @@ describe('options page: import and export', () => {
       { production: 'app.example.com', development: ['dev.example.com', 'staging.example.com'] },
     ]);
     expect(target.lastWrite('prodSize')).toBe(150);
-    expect(target.lastWrite('localStorageKeys')).toEqual(['use-prod-db']);
+    expect(target.lastWrite('trackedKeys')).toEqual([
+      { key: 'use-prod-db', hosts: ['dev.example.com'], value: 'false' },
+    ]);
   });
 });
 
@@ -432,15 +543,48 @@ describe('options page: saving', () => {
     fillRow(groupRows()[0], 'example.com', 'dev.example.com');
     (document.getElementById('bannerPosition') as HTMLSelectElement).value = 'bottom';
     (document.getElementById('prodSize') as HTMLSelectElement).value = '150';
-    document.getElementById('addKeyButton')?.dispatchEvent(new MouseEvent('click'));
-    document.querySelector<HTMLInputElement>('.local-storage-key-row input')!.value =
-      ' use-prod-db ';
+    const row = addKeyRow();
+    row.querySelector<HTMLInputElement>('.key-name')!.value = ' use-prod-db ';
+    tickHost(row, 'dev.example.com');
+    row.querySelector<HTMLSelectElement>('.key-value')!.value = 'false';
 
     await clickSave();
 
     expect(storage.lastWrite('bannerPosition')).toBe('bottom');
     expect(storage.lastWrite('prodSize')).toBe(150);
-    expect(storage.lastWrite('localStorageKeys')).toEqual(['use-prod-db']);
+    expect(storage.lastWrite('trackedKeys')).toEqual([
+      { key: 'use-prod-db', hosts: ['dev.example.com'], value: 'false' },
+    ]);
+    // The trimmed name is reflected back, as a normalized hostname is.
+    expect(readKeyRow(keyRows()[0]).key).toBe('use-prod-db');
+  });
+
+  it('saves a key with no hosts, which applies wherever the banner does', async () => {
+    const storage = new FakeStorage();
+    await open(storage);
+
+    fillRow(groupRows()[0], 'example.com', 'dev.example.com');
+    addKeyRow().querySelector<HTMLInputElement>('.key-name')!.value = 'flag';
+
+    await clickSave();
+
+    expect(storage.lastWrite('trackedKeys')).toEqual([{ key: 'flag', hosts: [], value: '1' }]);
+  });
+
+  it('drops a key row whose name has been emptied', async () => {
+    const storage = new FakeStorage({
+      groups: [{ production: 'example.com', development: ['dev.example.com'] }],
+      trackedKeys: [
+        { key: 'flag', hosts: [], value: '1' },
+        { key: 'other', hosts: [], value: '1' },
+      ],
+    });
+    await open(storage);
+
+    keyRows()[0].querySelector<HTMLInputElement>('.key-name')!.value = '  ';
+    await clickSave();
+
+    expect(storage.lastWrite('trackedKeys')).toEqual([{ key: 'other', hosts: [], value: '1' }]);
   });
 
   it('drops a row after Remove is pressed', async () => {

@@ -3,6 +3,7 @@ import {
   clampBannerSize,
   isBannerPosition,
   normalizeHostPattern,
+  validateTrackedKey,
   parseHostList,
   validateGroup,
   validateHostPattern,
@@ -167,5 +168,57 @@ describe('isBannerPosition', () => {
     expect(isBannerPosition('bottom')).toBe(true);
     expect(isBannerPosition('middle')).toBe(false);
     expect(isBannerPosition(undefined)).toBe(false);
+  });
+});
+
+describe('validateTrackedKey', () => {
+  it('normalizes the key and its hosts', () => {
+    const result = validateTrackedKey('  use-prod-db ', ['https://Dev.Example.com/x'], 'true');
+    expect(result).toEqual({
+      ok: true,
+      value: { key: 'use-prod-db', hosts: ['dev.example.com'], value: 'true' },
+    });
+  });
+
+  it('accepts no hosts at all, which means every configured host', () => {
+    const result = validateTrackedKey('flag', [], '1');
+    expect(result).toMatchObject({ ok: true, value: { hosts: [] } });
+  });
+
+  it('rejects an empty key name', () => {
+    expect(validateTrackedKey('   ', [], '1')).toMatchObject({ ok: false });
+  });
+
+  it('rejects a host that is not a hostname pattern', () => {
+    const result = validateTrackedKey('flag', ['not a host'], '1');
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain('flag');
+  });
+
+  it('takes wildcard hosts without demanding they line up with anything', () => {
+    // Unlike a group's hosts, these are never translated into one another, so the
+    // wildcard counting that validateGroup enforces has nothing to say here.
+    const result = validateTrackedKey('flag', ['*.dev.example.com', 'app.example.com'], '1');
+    expect(result).toMatchObject({
+      ok: true,
+      value: { hosts: ['*.dev.example.com', 'app.example.com'] },
+    });
+  });
+
+  it('drops a repeated host rather than refusing the row', () => {
+    const result = validateTrackedKey('flag', ['dev.example.com', 'dev.example.com'], '1');
+    expect(result).toMatchObject({ ok: true, value: { hosts: ['dev.example.com'] } });
+  });
+
+  it('coerces a value the banner could not write, keeping the key', () => {
+    // The options page only offers the four; this fires on a hand-edited import.
+    expect(validateTrackedKey('flag', [], 'staging')).toMatchObject({
+      ok: true,
+      value: { value: '1' },
+    });
+    expect(validateTrackedKey('flag', [], undefined)).toMatchObject({
+      ok: true,
+      value: { value: '1' },
+    });
   });
 });

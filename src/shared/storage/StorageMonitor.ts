@@ -6,9 +6,26 @@
 import { platform } from '../platform';
 import { looksEnabled, nextFlagValue } from './flagValue';
 
+/**
+ * A key to watch on this page, and what to write into it when it is not set.
+ *
+ * Host scope is resolved before this — the monitor is only ever handed the keys
+ * that apply here — so it deals in key names and values only.
+ */
+export interface WatchedKey {
+  key: string;
+  /** Written when the key is absent; the key's configured value. */
+  assignValue: string;
+}
+
 export interface Warning {
   key: string;
-  /** Stored value, or null when the key is absent from the page's localStorage. */
+  /**
+   * Stored value, or null when the key is absent from the page's localStorage.
+   * Absent is reported rather than skipped: the key is configured for this host,
+   * so its absence is a state the banner has something to say about, and the chip
+   * is what offers to set it.
+   */
   value: string | null;
   /** Value reads as "switched on" — see `looksEnabled`. */
   isWarning: boolean;
@@ -26,7 +43,7 @@ export interface Warning {
 }
 
 export class StorageMonitor {
-  private keys: string[] = [];
+  private keys: WatchedKey[] = [];
   private watching = false;
   /**
    * For every key this banner has changed, the value it held beforehand.
@@ -41,10 +58,11 @@ export class StorageMonitor {
 
   constructor(private readonly onWarningsUpdate: (warnings: Warning[]) => void) {}
 
-  setKeys(keys: string[]): void {
+  setKeys(keys: WatchedKey[]): void {
     this.keys = keys;
+    const watched = new Set(keys.map((entry) => entry.key));
     for (const key of this.baseline.keys()) {
-      if (!keys.includes(key)) this.baseline.delete(key);
+      if (!watched.has(key)) this.baseline.delete(key);
     }
   }
 
@@ -58,7 +76,8 @@ export class StorageMonitor {
   /**
    * Flip a tracked flag between its on and off values, so pointing an app at
    * production data and back is a click in the banner instead of a trip through
-   * devtools.
+   * devtools. A key that is not set on this page is assigned its configured
+   * value, which is the same write in the other direction.
    *
    * A value that is not a plain on/off flag is left untouched, the same decision
    * the chip presents — checked again here because the value the chip was built
@@ -69,12 +88,41 @@ export class StorageMonitor {
    * strength of that, so a refusal must be distinguishable from a change.
    */
   async toggle(key: string): Promise<boolean> {
+    const watched = this.keys.find((entry) => entry.key === key);
+    // Not watched here, so nothing has told us what to write into it.
+    if (!watched) return false;
+
     const current = await this.read(key);
-    const next = nextFlagValue(current);
+    const next = nextFlagValue(current, watched.assignValue);
     if (next === null) return false;
 
     this.rememberBaseline(key, current);
     await platform.setLocalStorageValue(key, next);
+    await this.refresh();
+    return true;
+  }
+
+  /**
+   * Remove a tracked key, so the app falls back to however it was built.
+   *
+   * The way out of a value `toggle` refuses to overwrite, and the reverse of
+   * assigning one. Destructive and unundoable, which is why the banner asks for it
+   * by a named control rather than as one more thing a chip click might do.
+   *
+   * Resolves to whether anything was removed, so a caller can tell a real removal
+   * from a key that was already gone.
+   */
+  async unset(key: string): Promise<boolean> {
+    const watched = this.keys.find((entry) => entry.key === key);
+    if (!watched) return false;
+
+    // Re-read for the same reason `toggle` does: what the chip was built from can
+    // be stale, and there is nothing to remove if the key has already gone.
+    const current = await this.read(key);
+    if (current === null) return false;
+
+    this.rememberBaseline(key, current);
+    await platform.removeLocalStorageValue(key);
     await this.refresh();
     return true;
   }
@@ -86,24 +134,18 @@ export class StorageMonitor {
       return;
     }
 
-    const values = await platform.getLocalStorageValues(this.keys);
+    const values = await platform.getLocalStorageValues(this.keys.map((entry) => entry.key));
     const warnings: Warning[] = [];
 
-    for (const key of this.keys) {
-      const value = values[key] ?? null;
-      const pendingReload = this.resolvePending(key, value);
-
-      // An absent key means the app falls back to how it was built, which the
-      // banner already states — so there is nothing to show, unless we are the
-      // ones who removed it and the page has yet to catch up.
-      if (value === null && !pendingReload) continue;
+    for (const watched of this.keys) {
+      const value = values[watched.key] ?? null;
 
       warnings.push({
-        key,
+        key: watched.key,
         value,
         isWarning: value !== null && looksEnabled(value),
-        pendingReload,
-        nextValue: nextFlagValue(value),
+        pendingReload: this.resolvePending(watched.key, value),
+        nextValue: nextFlagValue(value, watched.assignValue),
       });
     }
 

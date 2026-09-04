@@ -15,6 +15,7 @@ function mountRenderer(
   const onSwitch = vi.fn();
   const onDismiss = vi.fn();
   const onToggleKey = vi.fn();
+  const onUnsetKey = vi.fn();
   const renderer = new BannerRenderer({
     isProduction,
     bannerSize: 50,
@@ -23,13 +24,14 @@ function mountRenderer(
     onSwitch,
     onDismiss,
     onToggleKey,
+    onUnsetKey,
   });
 
   const elements = renderer.create();
   if (!elements) throw new Error('renderer produced no elements');
   document.body.appendChild(elements.wrapper);
 
-  return { renderer, banner: elements.banner, onSwitch, onDismiss, onToggleKey };
+  return { renderer, banner: elements.banner, onSwitch, onDismiss, onToggleKey, onUnsetKey };
 }
 
 /** Mirrors what StorageMonitor reports, so the fixtures cannot describe a chip it never produces. */
@@ -174,15 +176,16 @@ describe('BannerRenderer.displayWarnings', () => {
 
     const chip = chips(banner)[0];
     expect(chip.querySelector('img')).toBeNull();
-    expect(chip.querySelector('.tracked-flag-text')?.textContent).toBe(`flag = ${payload}`);
+    expect(chip.querySelector('.tracked-flag-text')?.textContent).toBe('flag');
+    expect(chip.querySelector('.tracked-flag-value')?.textContent).toBe(`= ${payload}`);
     expect((globalThis as Record<string, unknown>).__pwned).toBeUndefined();
   });
 
   it('keeps a value containing angle brackets intact', () => {
     const { renderer, banner } = mountRenderer();
     renderer.displayWarnings([warning('cfg', '{"a": 1 < 2}')]);
-    expect(chips(banner)[0].querySelector('.tracked-flag-text')?.textContent).toBe(
-      'cfg = {"a": 1 < 2}',
+    expect(chips(banner)[0].querySelector('.tracked-flag-value')?.textContent).toBe(
+      '= {"a": 1 < 2}',
     );
   });
 
@@ -220,25 +223,42 @@ describe('BannerRenderer.displayWarnings', () => {
 
     expect(banner.querySelectorAll('.warning-content')).toHaveLength(1);
     expect(chips(banner)).toHaveLength(1);
-    expect(chips(banner)[0].querySelector('.tracked-flag-text')?.textContent).toBe('b = 2');
+    expect(chips(banner)[0].querySelector('.tracked-flag-text')?.textContent).toBe('b');
   });
 
-  function toggle(banner: HTMLElement, index = 0) {
-    return chips(banner)[index].querySelector<HTMLButtonElement>('.tracked-flag-toggle');
+  /** The chip's actions, by their visible label. */
+  function actions(banner: HTMLElement, index = 0): Record<string, HTMLButtonElement> {
+    const found: Record<string, HTMLButtonElement> = {};
+    for (const button of chips(banner)[index].querySelectorAll<HTMLButtonElement>(
+      '.tracked-flag-action',
+    )) {
+      found[button.textContent ?? ''] = button;
+    }
+    return found;
   }
 
-  it('flips a 0/1 flag when its chip is clicked, and says what that will write', () => {
+  it('offers swap and unset as words, not as one click on the whole chip', () => {
+    const { renderer, banner } = mountRenderer();
+    renderer.displayWarnings([warning('flag', '1', true)]);
+
+    // The chip's body used to be one button, which read as a label and behaved as
+    // a switch — and could not offer two different actions at all.
+    expect(Object.keys(actions(banner))).toEqual(['swap', 'unset']);
+    expect(chips(banner)[0].querySelector('.tracked-flag-text')?.closest('button')).toBeNull();
+  });
+
+  it('swaps a 0/1 flag, and says what that will write', () => {
     const { renderer, banner, onToggleKey } = mountRenderer();
     renderer.displayWarnings([warning('use-production-data', '1', true)]);
 
-    const button = toggle(banner);
+    const swap = actions(banner).swap;
     // Both effects have to be named, or the new tab is a surprise.
-    expect(button?.title).toBe(
+    expect(swap.title).toBe(
       'Set use-production-data to 0 and open this page in a new tab, where the app will read it' +
         ' — this tab keeps the value it started with',
     );
 
-    button?.click();
+    swap.click();
     expect(onToggleKey).toHaveBeenCalledWith('use-production-data');
   });
 
@@ -246,51 +266,103 @@ describe('BannerRenderer.displayWarnings', () => {
     const { renderer, banner } = mountRenderer();
     renderer.displayWarnings([warning('flag', 'FALSE')]);
     // The vocabulary and spelling the page used are kept, so the chip has to say so.
-    expect(toggle(banner)?.title).toContain('Set flag to TRUE');
+    expect(actions(banner).swap.title).toContain('Set flag to TRUE');
+  });
+
+  it('removes a flag when unset is pressed, saying it cannot be undone', () => {
+    const { renderer, banner, onUnsetKey, onToggleKey } = mountRenderer();
+    renderer.displayWarnings([warning('flag', '1', true)]);
+
+    const unset = actions(banner).unset;
+    expect(unset.title).toContain('Remove flag');
+    expect(unset.title).toContain('cannot be undone');
+
+    unset.click();
+    expect(onUnsetKey).toHaveBeenCalledWith('flag');
+    expect(onToggleKey).not.toHaveBeenCalled();
   });
 
   it('does not overwrite a value that is not a plain on/off flag', () => {
     const { renderer, banner, onToggleKey } = mountRenderer();
     renderer.displayWarnings([warning('flag', 'staging')]);
 
-    const button = toggle(banner);
-    expect(button?.classList.contains('is-locked')).toBe(true);
-    expect(button?.getAttribute('aria-disabled')).toBe('true');
+    const swap = actions(banner).swap;
+    expect(swap.classList.contains('is-locked')).toBe(true);
+    expect(swap.getAttribute('aria-disabled')).toBe('true');
 
-    button?.click();
+    swap.click();
     expect(onToggleKey).not.toHaveBeenCalled();
   });
 
-  it('says why, rather than quietly ignoring the click', () => {
+  it('still offers unset as the way out of such a value', () => {
+    const { renderer, banner, onUnsetKey } = mountRenderer();
+    renderer.displayWarnings([warning('flag', 'staging')]);
+
+    // Refusing to overwrite it is not the same as refusing to let it go: the user
+    // pressing unset is plainly asking for the value to go.
+    actions(banner).unset.click();
+    expect(onUnsetKey).toHaveBeenCalledWith('flag');
+  });
+
+  it('says why, rather than quietly ignoring the press', () => {
     const { renderer, banner } = mountRenderer();
     renderer.displayWarnings([warning('flag', '{"env":"prod"}')]);
 
-    toggle(banner)?.click();
+    actions(banner).swap.click();
 
     const flash = banner.querySelector<HTMLElement>('.banner-flash');
     expect(flash?.hidden).toBe(false);
     expect(flash?.textContent).toBe('flag is not 0/1 — left as it is');
   });
 
-  it('offers to turn a removed flag back on', () => {
+  it('offers to set a key the host is configured to have, naming the value', () => {
     const { renderer, banner, onToggleKey } = mountRenderer();
-    renderer.displayWarnings([{ ...warning('flag', null), pendingReload: true }]);
+    // What StorageMonitor reports for a configured key the page has not set, with
+    // the value the key is configured to be assigned.
+    renderer.displayWarnings([{ ...warning('flag', null), nextValue: 'true' }]);
 
-    const button = toggle(banner);
-    expect(button?.title).toContain('Set flag to 1');
+    const chip = chips(banner)[0];
+    // Neutral, not the "off" green: the app is on whatever it was built with, and
+    // that is not a statement about the flag's value.
+    expect(chip.classList.contains('is-unset')).toBe(true);
+    expect(chip.querySelector('.tracked-flag-value')?.textContent).toBe('— not set');
 
-    button?.click();
+    // One action, and the value it writes is visible: there is nothing to swap and
+    // nothing to clear.
+    expect(Object.keys(actions(banner))).toEqual(['set true']);
+    actions(banner)['set true'].click();
     expect(onToggleKey).toHaveBeenCalledWith('flag');
   });
 
-  it('keeps the flag readable to a screen reader alongside the action', () => {
+  it('keeps the state out of the ellipsis when the key name is long', () => {
+    const { renderer, banner } = mountRenderer();
+    renderer.displayWarnings([warning('nwave-production-enabled-and-then-some-more', null)]);
+
+    const chip = chips(banner)[0];
+    // The name is the only shrinking part, so a long one can never swallow the
+    // state the way it did when both lived in one element.
+    expect(chip.querySelector('.tracked-flag-text')?.textContent).toBe(
+      'nwave-production-enabled-and-then-some-more',
+    );
+    expect(chip.querySelector('.tracked-flag-value')?.textContent).toBe('— not set');
+  });
+
+  it('names an unset key by its state for a screen reader', () => {
+    const { renderer, banner } = mountRenderer();
+    renderer.displayWarnings([warning('flag', null)]);
+
+    expect(actions(banner)['set 1'].getAttribute('aria-label')).toContain('flag is not set');
+  });
+
+  it('keeps the flag readable to a screen reader alongside each action', () => {
     const { renderer, banner } = mountRenderer();
     renderer.displayWarnings([warning('flag', '1', true)]);
 
-    // A bare action label would drop the current value out of the accessible name.
-    expect(toggle(banner)?.getAttribute('aria-label')).toMatch(
+    // A one-word label means nothing on its own, so both carry the value.
+    expect(actions(banner).swap.getAttribute('aria-label')).toMatch(
       /^flag = 1\. Set flag to 0 and open/,
     );
+    expect(actions(banner).unset.getAttribute('aria-label')).toMatch(/^flag = 1\. Remove flag/);
   });
 
   it('keeps the value visible while a change awaits a reload', () => {
@@ -298,10 +370,10 @@ describe('BannerRenderer.displayWarnings', () => {
     renderer.displayWarnings([{ ...warning('flag', '0'), pendingReload: true }]);
 
     const chip = chips(banner)[0];
-    // Coloured by what is stored, so the click has a visible effect straight away,
+    // Coloured by what is stored, so the press has a visible effect straight away,
     // with the outstanding reload said in words next to it.
     expect(chip.classList.contains('is-disabled')).toBe(true);
-    expect(chip.querySelector('.tracked-flag-text')?.textContent).toBe('flag = 0');
+    expect(chip.querySelector('.tracked-flag-value')?.textContent).toBe('= 0');
     expect(chip.querySelector('.tracked-flag-note')?.textContent).toBe('reload to apply');
   });
 
@@ -309,21 +381,6 @@ describe('BannerRenderer.displayWarnings', () => {
     const { renderer, banner } = mountRenderer();
     renderer.displayWarnings([warning('flag', '1', true)]);
     expect(chips(banner)[0].querySelector('button button')).toBeNull();
-  });
-
-  it('leaves the chip a switch and nothing else', () => {
-    const { renderer, banner } = mountRenderer();
-    renderer.displayWarnings([
-      warning('flag', '1', true),
-      { ...warning('gone', null), pendingReload: true },
-    ]);
-
-    // There is no remove control any more: the two values a flag flips between
-    // are the whole vocabulary the banner writes.
-    expect(banner.querySelector('.tracked-flag-reset')).toBeNull();
-    for (const chip of chips(banner)) {
-      expect(chip.querySelectorAll('button')).toHaveLength(1);
-    }
   });
 
   it('does nothing before the banner is built', () => {
@@ -335,6 +392,7 @@ describe('BannerRenderer.displayWarnings', () => {
       onSwitch: vi.fn(),
       onDismiss: vi.fn(),
       onToggleKey: vi.fn(),
+      onUnsetKey: vi.fn(),
     });
     expect(() => renderer.displayWarnings([warning('a', '1')])).not.toThrow();
   });

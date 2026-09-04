@@ -66,12 +66,16 @@ export interface PlatformAPI {
   /** Observe writes to the page's localStorage (content script context only). */
   watchLocalStorage: (onChange: () => void) => void;
 
-  /**
-   * Write a key in the *page's* localStorage (content script context only).
-   *
-   * There is deliberately no removal counterpart: the banner's chips are
-   * switches, and the only values they ever write are the two a flag flips
-   * between.
-   */
+  /** Write a key in the *page's* localStorage (content script context only). */
   setLocalStorageValue: (key: string, value: string) => Promise<void>;
+
+  /**
+   * Remove a key from the *page's* localStorage (content script context only).
+   *
+   * The counterpart of the chip's `unset` action, and the only way out of a value
+   * the banner refuses to overwrite. It is destructive and localStorage keeps no
+   * history, which is why it is a separate, named control rather than something a
+   * click on the chip could do by accident.
+   */
+  removeLocalStorageValue: (key: string) => Promise<void>;
 }

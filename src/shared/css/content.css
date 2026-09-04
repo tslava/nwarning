@@ -217,7 +217,7 @@ html.banner-bottom {
   align-items: center !important;
   gap: 4px !important;
   flex: none !important;
-  max-width: 320px !important;
+  max-width: 380px !important;
   padding: 3px 8px !important;
   border-radius: 4px !important;
   font-size: 13px !important;
@@ -237,59 +237,89 @@ html.banner-bottom {
 }
 
 /*
- * The key is gone: neutral rather than the "off" green, because the app is back on
- * however it was built and the colours only speak about values.
+ * The key is not set: neutral rather than the "off" green, because the app is
+ * running on however it was built and the colours only speak about values. This is
+ * also the chip that offers to assign the key, so it must not look disabled.
  */
-#environment-banner .tracked-flag.is-removed {
+#environment-banner .tracked-flag.is-unset {
   background-color: #fff !important;
   color: #333 !important;
   font-style: italic !important;
 }
 
 /*
- * The chip's body is the switch for its flag. The pill stays a span with the
- * button inside it, so the chip's colours and shape are stated in one place and do
- * not have to fight a button's own defaults.
+ * The flag's name is the only part that may be ellipsised, so it is the only part
+ * allowed to shrink. With the name and its value in one element, a long key name
+ * ate the value and the chip stopped saying anything about the flag.
  */
-#environment-banner .tracked-flag-toggle {
+#environment-banner .tracked-flag-text {
+  flex: 0 1 auto !important;
+  min-width: 3ch !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  text-overflow: ellipsis !important;
+}
+
+#environment-banner .tracked-flag-value {
+  flex: none !important;
+  max-width: 16ch !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  text-overflow: ellipsis !important;
+}
+
+/*
+ * The actions, as words. They never shrink: what you can do to a flag must not be
+ * the part that disappears when the banner is crowded.
+ */
+#environment-banner .tracked-flag-actions {
   display: inline-flex !important;
   align-items: baseline !important;
+  flex: none !important;
   gap: 6px !important;
-  min-width: 0 !important;
+  margin-left: 2px !important;
+}
+
+#environment-banner .tracked-flag-action {
   margin: 0 !important;
   padding: 0 !important;
   border: none !important;
   background: none !important;
   color: inherit !important;
   font: inherit !important;
+  /* Smaller and upright: subordinate to the flag it acts on, and a control rather
+     than part of the sentence the unset chip's italics make. */
+  font-size: 11px !important;
+  font-weight: normal !important;
+  font-style: normal !important;
   line-height: inherit !important;
-  text-align: left !important;
+  text-decoration: underline !important;
   cursor: pointer !important;
   text-shadow: none !important;
+  white-space: nowrap !important;
+  opacity: 0.9 !important;
 }
 
-#environment-banner .tracked-flag-toggle:hover .tracked-flag-text {
-  text-decoration: underline !important;
+/* The divider between two actions, drawn rather than written as a character. */
+#environment-banner .tracked-flag-action + .tracked-flag-action {
+  padding-left: 7px !important;
+  border-left: 1px solid currentColor !important;
 }
 
-#environment-banner .tracked-flag-toggle:focus-visible {
+#environment-banner .tracked-flag-action:hover {
+  opacity: 1 !important;
+}
+
+#environment-banner .tracked-flag-action:focus-visible {
   outline: 2px solid currentColor !important;
   outline-offset: 1px !important;
 }
 
-/* Not a 0/1 flag: clicking explains instead of overwriting it. */
-#environment-banner .tracked-flag-toggle.is-locked {
+/* Not a 0/1 flag: pressing swap explains instead of overwriting it. */
+#environment-banner .tracked-flag-action.is-locked {
   cursor: default !important;
-}
-
-#environment-banner .tracked-flag-toggle.is-locked:hover .tracked-flag-text {
-  text-decoration: none !important;
-}
-
-#environment-banner .tracked-flag-text {
-  overflow: hidden !important;
-  white-space: nowrap !important;
-  text-overflow: ellipsis !important;
+  opacity: 0.6 !important;
+  text-decoration-style: dotted !important;
 }
 
 /*

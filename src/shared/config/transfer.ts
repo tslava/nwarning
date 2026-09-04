@@ -4,8 +4,8 @@
  */
 
 import { DEFAULTS } from './defaults';
-import type { EnvironmentGroup, Settings } from './schema';
-import { clampBannerSize, isBannerPosition, validateGroup } from './validation';
+import type { EnvironmentGroup, Settings, TrackedKey } from './schema';
+import { clampBannerSize, isBannerPosition, validateGroup, validateTrackedKey } from './validation';
 
 /** Bumped only if the shape changes in a way an importer must know about. */
 export const TRANSFER_VERSION = 1;
@@ -17,7 +17,7 @@ export const TRANSFER_VERSION = 1;
  */
 export type TransferableSettings = Pick<
   Settings,
-  'groups' | 'prodSize' | 'devSize' | 'bannerPosition' | 'localStorageKeys'
+  'groups' | 'prodSize' | 'devSize' | 'bannerPosition' | 'trackedKeys'
 >;
 
 export type ImportResult =
@@ -30,7 +30,12 @@ export function exportSettings(settings: Settings): string {
     prodSize: settings.prodSize,
     devSize: settings.devSize,
     bannerPosition: settings.bannerPosition,
-    localStorageKeys: settings.localStorageKeys,
+    trackedKeys: settings.trackedKeys,
+    // The names alone, as 2.0 and earlier wrote them. The version is deliberately
+    // not bumped and this field deliberately kept: a configuration exported here
+    // still imports into an older build, which reads this and ignores the rest,
+    // rather than being refused outright over a field it has never heard of.
+    localStorageKeys: settings.trackedKeys.map((tracked) => tracked.key),
   };
   return `${JSON.stringify(payload, null, 2)}\n`;
 }
@@ -42,6 +47,32 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function asStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.filter((item): item is string => typeof item === 'string' && item.trim() !== '');
+}
+
+/**
+ * Watched keys from a payload, from either shape.
+ *
+ * `trackedKeys` is what this version writes; a payload that only has the older
+ * `localStorageKeys` names is read as keys with no host scope, exactly as the
+ * stored-settings migration does, so a file from 2.0 imports into the same
+ * configuration it described there.
+ */
+function readTrackedKeys(parsed: Record<string, unknown>): TrackedKey[] {
+  const entries = Array.isArray(parsed.trackedKeys)
+    ? parsed.trackedKeys
+    : asStringArray(parsed.localStorageKeys).map((key) => ({ key }));
+
+  const keys: TrackedKey[] = [];
+  for (const entry of entries) {
+    if (!isRecord(entry)) continue;
+    const result = validateTrackedKey(
+      String(entry.key ?? ''),
+      asStringArray(entry.hosts),
+      entry.value,
+    );
+    if (result.ok) keys.push(result.value);
+  }
+  return keys;
 }
 
 /**
@@ -97,7 +128,7 @@ export function importSettings(json: string): ImportResult {
       bannerPosition: isBannerPosition(parsed.bannerPosition)
         ? parsed.bannerPosition
         : DEFAULTS.bannerPosition,
-      localStorageKeys: asStringArray(parsed.localStorageKeys),
+      trackedKeys: readTrackedKeys(parsed),
     },
   };
 }

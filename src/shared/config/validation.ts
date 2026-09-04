@@ -1,6 +1,7 @@
+import { DEFAULT_ASSIGN_VALUE, isAssignableValue } from '../storage/flagValue';
 import { countWildcards } from '../utils/patterns';
 import { MAX_BANNER_SIZE, MIN_BANNER_SIZE } from './defaults';
-import type { BannerPosition, EnvironmentGroup } from './schema';
+import type { BannerPosition, EnvironmentGroup, TrackedKey } from './schema';
 
 export type ValidationResult = { ok: true; value: string } | { ok: false; error: string };
 
@@ -103,6 +104,49 @@ export function validateGroup(production: string, developments: string[]): Group
   }
 
   return { ok: true, value: { production: prod.value, development: value } };
+}
+
+export type TrackedKeyValidationResult =
+  { ok: true; value: TrackedKey } | { ok: false; error: string };
+
+/**
+ * Validate one watched localStorage key together with its host scope.
+ *
+ * Hosts are patterns, matched against `location.hostname` like everything else,
+ * but unlike a group's hosts they are never translated into one another — so the
+ * wildcard-counting rules that `validateGroup` enforces do not apply here, and a
+ * host only has to be a well-formed pattern. An empty list is legitimate and
+ * means every host the extension is active on.
+ *
+ * A value outside `ASSIGNABLE_VALUES` is coerced rather than rejected. The
+ * options page can only produce the four it offers, so this only ever fires on a
+ * hand-edited import or a value written by another version, and coercing keeps
+ * the key — dropping the whole row over its secondary attribute would throw away
+ * the key name, which is the part that took someone effort to find.
+ */
+export function validateTrackedKey(
+  rawKey: string,
+  rawHosts: string[],
+  rawValue: unknown,
+): TrackedKeyValidationResult {
+  const key = rawKey.trim();
+  if (!key) {
+    return { ok: false, error: 'Key name is empty' };
+  }
+
+  const seen = new Set<string>();
+  const hosts: string[] = [];
+  for (const candidate of rawHosts) {
+    const host = validateHostPattern(candidate);
+    if (!host.ok) return { ok: false, error: `${key}: ${host.error}` };
+    // Duplicates are dropped rather than rejected, as in a group.
+    if (seen.has(host.value)) continue;
+    seen.add(host.value);
+    hosts.push(host.value);
+  }
+
+  const value = isAssignableValue(rawValue) ? rawValue : DEFAULT_ASSIGN_VALUE;
+  return { ok: true, value: { key, hosts, value } };
 }
 
 export function clampBannerSize(value: unknown, fallback: number): number {

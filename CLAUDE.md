@@ -75,14 +75,28 @@ stands. Production is singular by definition. Two older shapes migrate into it �
 1.2's flat `pairs`, and the pre-1.2 parallel arrays — folding entries that share
 a production host into one group. Older keys are left in place for rollback.
 
+Tracked localStorage keys are stored as
+`trackedKeys: [{key, hosts: string[], value}]`. `hosts` are patterns picked from
+the configured groups and **empty means every host the extension is active on** —
+which is exactly what 2.0's flat `localStorageKeys: string[]` meant, so the
+migration is `{key, hosts: [], value: '1'}` and an update never changes where an
+existing key is watched. `value` is what a click assigns when the key is not set,
+and it is constrained to `ASSIGNABLE_VALUES` in `storage/flagValue.ts`: the
+vocabulary a chip can write is one list, so an assignment can never produce a value
+the same chip would then refuse to flip. A value outside it is coerced rather than
+dropping the row — the key name is the part that took someone effort to find.
+
 Settings live in **synced** storage (`platform.storage.sync`) so a configuration
 follows the profile. `platform.storage.local` is passed to `SettingsManager` as
 the previous area and read once, to copy an existing local configuration across.
 Do not write to the local area.
 
 `config/transfer.ts` handles JSON import/export. Imports must go through
-`validateGroup`, the same path as the form, so an import can never introduce a
-configuration the UI would reject.
+`validateGroup` and `validateTrackedKey`, the same path as the form, so an import
+can never introduce a configuration the UI would reject. The payload keeps
+`version: 1` and still carries `localStorageKeys` — the key names alone — so a file
+exported here imports into a 2.0 build instead of being refused over a field it has
+never heard of.
 
 Content scripts subscribe with `settings.onChange()`, so saving options or
 toggling the extension applies live in every tab. Do not add tab messaging for
@@ -122,7 +136,7 @@ src/shared/
 ├── storage/
 │   ├── StorageMonitor.ts      # Page localStorage monitoring and writes
 │   └── flagValue.ts           # What a flag's value means, and what a click writes
-├── utils/                     # patterns.ts, environment.ts
+├── utils/                     # patterns.ts, environment.ts, trackedKeys.ts
 └── content.ts                 # Orchestrator
 ```
 
@@ -162,17 +176,47 @@ shown as on here is on there. Because chips and banner share one colour language
 a chip that disagrees with the banner _is_ the warning — do not add comparison
 logic for it.
 
-An absent key renders nothing: the app then falls back to how it was built, which
-means the effective environment is the page's own, and the banner already says
-that.
+A key in scope for the host renders whether or not the page has it, and an unset
+one is the offer to assign it — `utils/trackedKeys.ts` resolves scope before
+`StorageMonitor` ever sees a key, so the monitor's list _is_ the set of keys that
+belong here. The earlier rule was the opposite (an absent key rendered nothing) and
+its reasoning does not survive host scoping: it was about a key that might belong
+to an unrelated site, whereas a key configured for this host is known
+configuration, and its absence is a fact about the page worth a chip. The chip
+stays neutral rather than the "off" green, because the app is running on whatever
+it was built with and that is still not a statement about the flag's value.
 
-**A chip is a switch and nothing else.** A click flips the flag _and_ opens the same
-URL in a new tab, because the flip on its own does nothing to the page in front of
-you — these flags are read once at startup, so a fresh load is what applies one. The
-clicked tab is deliberately left alone: it is the before to the new tab's after, and
-nothing the user was looking at is thrown away. `window.open` stays in `content.ts`
-for the same reason switching does, the click's user gesture, and a refused popup is
-reported in the banner rather than only failing.
+Two rows may name one key with different hosts and values — `0` on production, `1`
+on a stand — so `keysForHost` lets the first matching row win, as `matchEnvironment`
+does. One chip per key: two would be two switches over one value.
+
+Hosts are **ticked from the configured groups on the options page, never typed**. A
+host in no group never shows a banner and so could never show a chip, and a typo
+there is indistinguishable from the extension being broken. A ticked host that
+later leaves the groups is kept, in a section of its own, and never dropped
+silently: emptying the list turns "only these hosts" into "every host", which is
+the opposite instruction. Nothing ticked is stated in words next to the row, since
+an empty box of checkboxes reads as an unfilled field rather than as "everywhere".
+
+**A chip states the flag; its actions are words.** `swap`, `unset` and
+`set <value>` are buttons; the name and value are text. The chip's body used to be
+one large button, which read as a label and behaved as a switch — what a press
+would do was only in the tooltip, and once there were two possible outcomes one
+click could no longer mean both.
+
+The name and the value are separate elements because **only the name may be
+ellipsised**. With both in one span, a long key name ate the state: a chip read
+`nwave-production-enabl…` and said nothing about the flag at all. The actions never
+shrink either — what you can do to a flag must not be the part that disappears when
+the banner is crowded.
+
+Every action writes _and_ opens the same URL in a new tab, because the write on its
+own does nothing to the page in front of you — these flags are read once at startup,
+so a fresh load is what applies one. The clicked tab is deliberately left alone: it
+is the before to the new tab's after, and nothing the user was looking at is thrown
+away. `window.open` stays in `content.ts` for the same reason switching does, the
+press's user gesture, and a refused popup is reported in the banner rather than only
+failing.
 
 Only `1`/`0` and `true`/`false` are flipped, case preserved; `nextFlagValue` returns
 `null` for anything else and the chip says why instead of writing. That refusal is
@@ -181,14 +225,17 @@ not destroy it, and localStorage keeps no history to undo from. `looksEnabled` a
 `nextFlagValue` live in one file because they must agree — an unrecognised value must
 never read as on, or the colour and the flip would contradict each other.
 
-There is **no remove control**, and `PlatformAPI` has no removal method: the two
-values a flag flips between are the entire vocabulary the banner writes. That does
-give something up, since most such flags treat any non-empty value as an override,
-so `0` is not always the app's built-in default — the call was the author's, on the
-grounds that the chip should read as a switch and `0`/`1` covers the apps this is
-used with. A key can still go missing from devtools or another tab, so the absent
-chip stays: it is neutral, not the "off" green, because the app is back on whatever
-it was built with and that is not a statement about the flag's value.
+`unset` removes the key, through `PlatformAPI.removeLocalStorageValue`. It exists
+because `0` is not the app's built-in default: most such flags treat any non-empty
+value as an override, so "off" and "absent" are different states and only removal
+reaches the second. It is also the only way out of a value `swap` refuses to
+overwrite — refusing to overwrite `staging` is not the same as refusing to let it
+go, and a user pressing `unset` is plainly asking for it to go.
+
+It is destructive and localStorage keeps no history, which is why it is a named
+control and not something a click on the chip could do by accident, why its tooltip
+says so, and why `StorageMonitor.unset` re-reads the value first and reports whether
+anything was actually removed.
 
 The refusal is enforced in `StorageMonitor.toggle` as well as in the chip, and the
 value is re-read there: what the chip was built from can be stale by the time it is

@@ -81,8 +81,18 @@
             feature flag left switched on is visible at a glance.
           </p>
           <p>
-            A key is listed whenever it is present. Values of <code>1</code> or <code>true</code>
-            are highlighted as switched on; anything else is shown dimmed.
+            Values of <code>1</code> or <code>true</code> are highlighted as switched on; anything
+            else is shown dimmed. A key that is not set on the page gets a neutral chip that offers
+            to set it: clicking writes the value chosen here and opens the page in a new tab, since
+            such flags are read once at startup. A value outside <code>0</code>/<code>1</code> and
+            <code>true</code>/<code>false</code> is never overwritten — that is somebody's
+            configuration, and localStorage keeps nothing to undo a click from.
+          </p>
+          <p>
+            Hosts are ticked from the environment groups above. With none ticked the key applies
+            everywhere the banner appears; ticking hosts limits it to those. The same key may be
+            listed twice with different hosts and values — <code>0</code> on production and
+            <code>1</code> on a stand, say — and the first row matching the page wins.
           </p>
           <p>Example keys to track:</p>
           <ul>
@@ -93,6 +103,8 @@
         <div class="local-storage-keys">
           <div class="local-storage-header">
             <div class="key-field-header">Key Name</div>
+            <div class="key-field-header">Hosts</div>
+            <div class="key-field-header">Default Value to set</div>
           </div>
           <div id="localStorageKeysContainer"></div>
           <button id="addKeyButton" class="add-key" type="button">Add key to track</button>

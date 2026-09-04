@@ -12,7 +12,7 @@ describe('SettingsManager.load', () => {
       prodSize: 30,
       devSize: 30,
       bannerPosition: 'top',
-      localStorageKeys: [],
+      trackedKeys: [],
     });
   });
 
@@ -33,10 +33,41 @@ describe('SettingsManager.load', () => {
     expect(settings.bannerPosition).toBe('top');
   });
 
-  it('drops non-string and blank localStorage keys', async () => {
-    const storage = new FakeStorage({ localStorageKeys: ['a', '', '  ', 7, null, 'b'] });
+  it('drops unusable tracked keys and coerces a value it could not write', async () => {
+    const storage = new FakeStorage({
+      trackedKeys: [
+        { key: 'a', hosts: ['dev.example.com'], value: 'true' },
+        { key: '', hosts: [] },
+        { key: 'b' },
+        { key: 'c', hosts: ['not a host'] },
+        { key: 'd', hosts: [], value: 'staging' },
+        7,
+        null,
+      ],
+    });
     const settings = await new SettingsManager(storage).load();
-    expect(settings.localStorageKeys).toEqual(['a', 'b']);
+    expect(settings.trackedKeys).toEqual([
+      { key: 'a', hosts: ['dev.example.com'], value: 'true' },
+      // Missing value falls back to the one useful direction, on.
+      { key: 'b', hosts: [], value: '1' },
+      { key: 'd', hosts: [], value: '1' },
+    ]);
+  });
+
+  it('drops a tracked row that repeats a key with the same hosts', async () => {
+    const storage = new FakeStorage({
+      trackedKeys: [
+        { key: 'flag', hosts: ['dev.example.com'], value: '1' },
+        { key: 'flag', hosts: ['dev.example.com'], value: '0' },
+        // The same key scoped elsewhere is a different row on purpose.
+        { key: 'flag', hosts: ['app.example.com'], value: '0' },
+      ],
+    });
+    const settings = await new SettingsManager(storage).load();
+    expect(settings.trackedKeys).toEqual([
+      { key: 'flag', hosts: ['dev.example.com'], value: '1' },
+      { key: 'flag', hosts: ['app.example.com'], value: '0' },
+    ]);
   });
 
   it('reads a group with several stands', async () => {
@@ -170,7 +201,7 @@ describe('SettingsManager migration from local to synced storage', () => {
       extensionEnabled: false,
       prodSize: 100,
       bannerPosition: 'bottom',
-      localStorageKeys: ['use-prod-db'],
+      trackedKeys: [{ key: 'use-prod-db', hosts: [], value: '1' }],
     });
 
     const settings = await new SettingsManager(sync, local).load();
@@ -181,7 +212,7 @@ describe('SettingsManager migration from local to synced storage', () => {
     expect(settings.extensionEnabled).toBe(false);
     expect(sync.lastWrite('prodSize')).toBe(100);
     expect(sync.lastWrite('bannerPosition')).toBe('bottom');
-    expect(sync.lastWrite('localStorageKeys')).toEqual(['use-prod-db']);
+    expect(sync.lastWrite('trackedKeys')).toEqual([{ key: 'use-prod-db', hosts: [], value: '1' }]);
   });
 
   it('does not read local again once sync holds anything', async () => {
@@ -244,5 +275,52 @@ describe('SettingsManager.onChange', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(seen).toEqual([false]);
+  });
+});
+
+describe('SettingsManager migration of tracked localStorage keys', () => {
+  it('reads the pre-2.1 flat list of names as keys with no host scope', async () => {
+    const storage = new FakeStorage({ localStorageKeys: ['use-prod-db', '', 7, 'feature-x'] });
+
+    const settings = await new SettingsManager(storage).load();
+
+    // No hosts is the only thing that list could have meant: watched wherever the
+    // banner appears. An update must not change where an existing key is watched.
+    expect(settings.trackedKeys).toEqual([
+      { key: 'use-prod-db', hosts: [], value: '1' },
+      { key: 'feature-x', hosts: [], value: '1' },
+    ]);
+  });
+
+  it('persists the migrated keys once, and leaves the old list for a rollback', async () => {
+    const storage = new FakeStorage({ localStorageKeys: ['use-prod-db'] });
+
+    await new SettingsManager(storage).load();
+
+    expect(storage.lastWrite('trackedKeys')).toEqual([
+      { key: 'use-prod-db', hosts: [], value: '1' },
+    ]);
+    // Untouched, so 2.0 keeps reading the keys it knows if the user rolls back.
+    expect(storage.lastWrite('localStorageKeys')).toBeUndefined();
+
+    const again = new FakeStorage({
+      localStorageKeys: ['use-prod-db'],
+      trackedKeys: [{ key: 'use-prod-db', hosts: [], value: '1' }],
+    });
+    await new SettingsManager(again).load();
+    expect(again.writes).toHaveLength(0);
+  });
+
+  it('prefers the new shape once it exists, however empty it is', async () => {
+    const storage = new FakeStorage({
+      localStorageKeys: ['use-prod-db'],
+      trackedKeys: [],
+    });
+
+    const settings = await new SettingsManager(storage).load();
+
+    // Deleting the last key is a real edit, not an absence to recover from.
+    expect(settings.trackedKeys).toEqual([]);
+    expect(storage.writes).toHaveLength(0);
   });
 });
