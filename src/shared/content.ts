@@ -5,6 +5,7 @@ import type { Settings } from './config/schema';
 import { platform } from './platform';
 import { StorageMonitor, type Warning } from './storage/StorageMonitor';
 import { matchEnvironment, type Environment, type EnvironmentMatch } from './utils/environment';
+import { keysForHost } from './utils/trackedKeys';
 
 /**
  * The content script runs at document_idle, where body already exists, but the
@@ -55,10 +56,20 @@ class EnvironmentBanner {
   }
 
   private async apply(next: Settings): Promise<void> {
-    this.storageMonitor.setKeys(next.localStorageKeys);
-
     const match = matchEnvironment(next.groups, window.location.hostname);
     const active = next.extensionEnabled && match !== null;
+
+    // Host scope is resolved here, where the hostname lives, and only while the
+    // extension is active on it: a key with no hosts of its own means "wherever
+    // the banner appears", which is exactly this condition.
+    this.storageMonitor.setKeys(
+      active
+        ? keysForHost(next.trackedKeys, window.location.hostname).map((tracked) => ({
+            key: tracked.key,
+            assignValue: tracked.value,
+          }))
+        : [],
+    );
 
     // Rebuild unconditionally: size, position and groups can all have changed,
     // and a teardown/rebuild is cheaper to reason about than diffing.
@@ -95,6 +106,7 @@ class EnvironmentBanner {
       onSwitch: (target) => this.openTarget(target),
       onDismiss: () => this.dismiss(),
       onToggleKey: (key) => void this.flipFlag(key),
+      onUnsetKey: (key) => void this.unsetFlag(key),
     });
 
     const elements = this.renderer.create();
@@ -144,6 +156,19 @@ class EnvironmentBanner {
     // showed nothing would look like the click had failed outright.
     if (!window.open(window.location.href, '_blank')) {
       this.renderer?.showMessage('Flag changed — reload to apply', 'warn');
+    }
+  }
+
+  /**
+   * Remove a tracked flag and open this page again, for the same reason a flip
+   * does: the app is running on the value it read at startup, so a fresh load is
+   * where falling back to its built-in default actually happens.
+   */
+  private async unsetFlag(key: string): Promise<void> {
+    if (!(await this.storageMonitor.unset(key))) return;
+
+    if (!window.open(window.location.href, '_blank')) {
+      this.renderer?.showMessage('Flag removed — reload to apply', 'warn');
     }
   }
 

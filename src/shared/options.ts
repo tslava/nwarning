@@ -1,9 +1,15 @@
 import { BANNER_SIZES } from './config/defaults';
 import { settings, type SettingsManager } from './config/settings';
-import type { EnvironmentGroup } from './config/schema';
+import type { EnvironmentGroup, TrackedKey } from './config/schema';
 import { exportSettings, importSettings } from './config/transfer';
-import { parseHostList, validateGroup } from './config/validation';
+import {
+  normalizeHostPattern,
+  parseHostList,
+  validateGroup,
+  validateTrackedKey,
+} from './config/validation';
 import { platform } from './platform';
+import { ASSIGNABLE_VALUES, DEFAULT_ASSIGN_VALUE } from './storage/flagValue';
 import type { PermissionsPort } from './types/platform';
 
 const GROUP_ROW = 'env-group';
@@ -78,8 +84,10 @@ export class OptionsManager {
       for (const group of current.groups) this.addGroupRow(group);
     }
 
+    // Groups are rendered first: the host checkboxes on every key row are built
+    // from the group fields, so those have to exist before a key row does.
     this.keysContainer.replaceChildren();
-    for (const key of current.localStorageKeys) this.addKeyRow(key);
+    for (const tracked of current.trackedKeys) this.addKeyRow(tracked);
   }
 
   private addGroupRow(group?: EnvironmentGroup): void {
@@ -104,7 +112,16 @@ export class OptionsManager {
     remove.type = 'button';
     remove.textContent = 'Remove';
     remove.className = 'remove-group';
-    remove.addEventListener('click', () => row.remove());
+    remove.addEventListener('click', () => {
+      row.remove();
+      this.refreshHostChoices();
+    });
+
+    // A host can only be ticked on a key row once it exists as text up here, so
+    // the choices follow the field as it is typed rather than waiting for a save.
+    for (const input of [production, development]) {
+      input.addEventListener('input', () => this.refreshHostChoices());
+    }
 
     const error = document.createElement('p');
     error.className = 'row-error';
@@ -114,15 +131,32 @@ export class OptionsManager {
     this.groupsContainer.appendChild(row);
   }
 
-  private addKeyRow(key = ''): void {
+  private addKeyRow(tracked?: TrackedKey): void {
     const row = document.createElement('div');
     row.className = KEY_ROW;
 
     const input = document.createElement('input');
     input.type = 'text';
-    input.value = key;
+    input.className = 'key-name';
+    input.value = tracked?.key ?? '';
     input.placeholder = 'Enter localStorage key';
     input.setAttribute('aria-label', 'localStorage key to track');
+
+    const hosts = document.createElement('div');
+    hosts.className = 'key-hosts';
+    hosts.setAttribute('role', 'group');
+    hosts.setAttribute('aria-label', 'Hosts this key applies to');
+
+    const value = document.createElement('select');
+    value.className = 'key-value';
+    value.setAttribute('aria-label', 'Default value to write when the key is not set');
+    for (const candidate of ASSIGNABLE_VALUES) {
+      const option = document.createElement('option');
+      option.value = candidate;
+      option.textContent = candidate;
+      value.appendChild(option);
+    }
+    value.value = tracked?.value ?? DEFAULT_ASSIGN_VALUE;
 
     const remove = document.createElement('button');
     remove.type = 'button';
@@ -130,8 +164,138 @@ export class OptionsManager {
     remove.className = 'remove-key';
     remove.addEventListener('click', () => row.remove());
 
-    row.append(input, remove);
+    // No validation message: every field here is constrained — a name, ticked
+    // hosts that came from the groups above, and one of the four values — so
+    // there is nothing a row can say that it could not have prevented.
+    row.append(input, hosts, value, remove);
     this.keysContainer.appendChild(row);
+    this.renderHostChoices(row, tracked?.hosts ?? []);
+  }
+
+  /**
+   * The hosts a key can be scoped to are the ones already configured above, so
+   * they are offered rather than typed: a host that is not in any group would
+   * never show a banner, and therefore never a chip, and a typo there is
+   * indistinguishable from the extension being broken.
+   *
+   * Production first and separately, because which side of a group a host is on
+   * is the thing you are actually deciding about a flag. A host that appears as
+   * production in one group and a stand in another is listed once, as production
+   * — the same precedence `matchEnvironment` applies.
+   */
+  private availableHosts(): { production: string[]; development: string[] } {
+    const production: string[] = [];
+    const development: string[] = [];
+
+    for (const row of this.groupsContainer.querySelectorAll<HTMLElement>(`.${GROUP_ROW}`)) {
+      const prod = normalizeHostPattern(
+        row.querySelector<HTMLInputElement>('.group-production')?.value ?? '',
+      );
+      if (prod) production.push(prod);
+
+      const raw = row.querySelector<HTMLInputElement>('.group-development')?.value ?? '';
+      for (const entry of parseHostList(raw)) {
+        const host = normalizeHostPattern(entry);
+        if (host) development.push(host);
+      }
+    }
+
+    const prodHosts = new Set(production);
+    return {
+      production: [...prodHosts],
+      development: [...new Set(development)].filter((host) => !prodHosts.has(host)),
+    };
+  }
+
+  /**
+   * Rebuild one key row's host checkboxes, keeping what was ticked.
+   *
+   * A ticked host that is no longer in any group is kept and shown in a section
+   * of its own rather than dropped. Dropping it would be the one edit that must
+   * not happen silently: emptying the list turns "only on these hosts" into
+   * "on every host", which is the opposite instruction.
+   */
+  private renderHostChoices(row: HTMLElement, selected: string[]): void {
+    const container = row.querySelector<HTMLElement>('.key-hosts');
+    if (!container) return;
+
+    const available = this.availableHosts();
+    const known = new Set([...available.production, ...available.development]);
+    const sections: [string, string[]][] = [
+      ['Production', available.production],
+      ['Non-production', available.development],
+      ['No longer in a group', selected.filter((host) => !known.has(host))],
+    ];
+
+    const nodes: HTMLElement[] = [];
+    for (const [caption, hosts] of sections) {
+      if (hosts.length === 0) continue;
+
+      const fieldset = document.createElement('fieldset');
+      fieldset.className = 'key-host-group';
+      const legend = document.createElement('legend');
+      legend.textContent = caption;
+      fieldset.appendChild(legend);
+
+      for (const host of hosts) {
+        const label = document.createElement('label');
+        const box = document.createElement('input');
+        box.type = 'checkbox';
+        box.className = 'key-host';
+        box.value = host;
+        box.checked = selected.includes(host);
+        box.addEventListener('change', () => this.updateHostHint(row));
+
+        const text = document.createElement('span');
+        text.textContent = host;
+        label.append(box, text);
+        fieldset.appendChild(label);
+      }
+      nodes.push(fieldset);
+    }
+
+    const hint = document.createElement('p');
+    hint.className = 'key-hosts-hint';
+    nodes.push(hint);
+
+    container.replaceChildren(...nodes);
+    this.updateHostHint(row);
+  }
+
+  /** Rebuild every key row's choices, after the groups above have changed. */
+  private refreshHostChoices(): void {
+    for (const row of this.keysContainer.querySelectorAll<HTMLElement>(`.${KEY_ROW}`)) {
+      this.renderHostChoices(row, this.selectedHosts(row));
+    }
+  }
+
+  /**
+   * Say what an empty selection means. Nothing ticked is a legitimate and useful
+   * state — the key applies wherever the banner does — but an empty box of
+   * checkboxes reads as an unfilled field, which is how it would be misread.
+   */
+  private updateHostHint(row: HTMLElement): void {
+    const hint = row.querySelector<HTMLElement>('.key-hosts-hint');
+    if (!hint) return;
+
+    if (this.selectedHosts(row).length > 0) {
+      hint.textContent = '';
+      hint.hidden = true;
+      return;
+    }
+
+    const { production, development } = this.availableHosts();
+    hint.textContent =
+      production.length + development.length === 0
+        ? 'Add an environment group above to limit this key to certain hosts.'
+        : 'Nothing ticked: every configured host.';
+    hint.hidden = false;
+  }
+
+  private selectedHosts(row: HTMLElement): string[] {
+    return [...row.querySelectorAll<HTMLInputElement>('.key-host')]
+      .filter((box) => box.checked)
+      .map((box) => box.value);
   }
 
   private setupEventListeners(): void {
@@ -257,13 +421,19 @@ export class OptionsManager {
       return;
     }
 
+    const trackedKeys = this.collectTrackedKeys();
+
+    // Group fields may have been normalized just now, so the ticked hosts have to
+    // be offered under the values that were actually stored.
+    this.refreshHostChoices();
+
     try {
       await this.manager.save({
         groups: collected.groups,
         prodSize: Number.parseInt(this.prodSizeSelect.value, 10),
         devSize: Number.parseInt(this.devSizeSelect.value, 10),
         bannerPosition: this.bannerPositionSelect.value === 'bottom' ? 'bottom' : 'top',
-        localStorageKeys: this.collectKeys(),
+        trackedKeys,
       });
     } catch (error) {
       // Synced storage has per-item quotas, so a write can genuinely fail.
@@ -309,12 +479,23 @@ export class OptionsManager {
     return { groups, errors };
   }
 
-  private collectKeys(): string[] {
-    const keys: string[] = [];
+  private collectTrackedKeys(): TrackedKey[] {
+    const keys: TrackedKey[] = [];
+
     for (const row of this.keysContainer.querySelectorAll<HTMLElement>(`.${KEY_ROW}`)) {
-      const value = row.querySelector('input')?.value.trim();
-      if (value) keys.push(value);
+      const input = row.querySelector<HTMLInputElement>('.key-name');
+      const value = row.querySelector<HTMLSelectElement>('.key-value');
+      if (!input || !value) continue;
+
+      // A row with no key name is how a key is dropped, as an emptied group row is.
+      const result = validateTrackedKey(input.value, this.selectedHosts(row), value.value);
+      if (!result.ok) continue;
+
+      // Reflect the trimmed name, so it is visible what was stored.
+      input.value = result.value.key;
+      keys.push(result.value);
     }
+
     return keys;
   }
 

@@ -1,7 +1,13 @@
 import { platform } from '../platform';
 import { DEFAULTS } from './defaults';
-import { LEGACY_KEYS, SETTINGS_KEYS, type EnvironmentGroup, type Settings } from './schema';
-import { clampBannerSize, isBannerPosition, validateGroup } from './validation';
+import {
+  LEGACY_KEYS,
+  SETTINGS_KEYS,
+  type EnvironmentGroup,
+  type Settings,
+  type TrackedKey,
+} from './schema';
+import { clampBannerSize, isBannerPosition, validateGroup, validateTrackedKey } from './validation';
 
 export interface SettingsStorage {
   get(keys: string[]): Promise<Record<string, unknown>>;
@@ -44,6 +50,42 @@ function coerceGroups(value: unknown): EnvironmentGroup[] {
     if (result.ok) groups.push(result.value);
   }
   return mergeByProduction(groups);
+}
+
+function coerceTrackedKeys(value: unknown): TrackedKey[] {
+  if (!Array.isArray(value)) return [];
+
+  const keys: TrackedKey[] = [];
+  const seen = new Set<string>();
+
+  for (const entry of value) {
+    if (!isRecord(entry)) continue;
+    const result = validateTrackedKey(
+      String(entry.key ?? ''),
+      asStringArray(entry.hosts),
+      entry.value,
+    );
+    if (!result.ok) continue;
+
+    // An identical row twice is a harmless duplicate, the same as a repeated
+    // host inside a group, and only the first would ever be used.
+    const identity = `${result.value.key}\u0000${result.value.hosts.join(',')}`;
+    if (seen.has(identity)) continue;
+    seen.add(identity);
+    keys.push(result.value);
+  }
+  return keys;
+}
+
+/**
+ * Rebuild watched keys from the pre-2.1 flat list of key names.
+ *
+ * No hosts, which now means "every host the extension is active on" — the only
+ * thing the flat list could ever have meant — so an existing configuration keeps
+ * watching exactly the hosts it was watching before the update.
+ */
+function trackedKeysFromNames(value: unknown): TrackedKey[] {
+  return coerceTrackedKeys(asStringArray(value).map((key) => ({ key, hosts: [] })));
 }
 
 /** Rebuild groups from the 1.2 flat-pair shape. */
@@ -102,7 +144,18 @@ export class SettingsManager {
     }
 
     let groups = coerceGroups(raw.groups);
+    let trackedKeys = coerceTrackedKeys(raw.trackedKeys);
+    const migratedKeys: Record<string, unknown> = {};
     let migrated = false;
+
+    if (raw.trackedKeys === undefined) {
+      const recovered = trackedKeysFromNames(raw.localStorageKeys);
+      if (recovered.length > 0) {
+        trackedKeys = recovered;
+        migratedKeys.trackedKeys = recovered;
+        migrated = true;
+      }
+    }
 
     if (raw.groups === undefined) {
       const fromPairs = groupsFromPairs(raw.pairs);
@@ -110,6 +163,7 @@ export class SettingsManager {
       const recovered = fromPairs.length > 0 ? fromPairs : fromArrays;
       if (recovered.length > 0) {
         groups = recovered;
+        migratedKeys.groups = recovered;
         migrated = true;
       }
     }
@@ -123,7 +177,7 @@ export class SettingsManager {
       bannerPosition: isBannerPosition(raw.bannerPosition)
         ? raw.bannerPosition
         : DEFAULTS.bannerPosition,
-      localStorageKeys: asStringArray(raw.localStorageKeys),
+      trackedKeys,
     };
 
     if (movedFromLocal) {
@@ -135,12 +189,12 @@ export class SettingsManager {
         prodSize: settings.prodSize,
         devSize: settings.devSize,
         bannerPosition: settings.bannerPosition,
-        localStorageKeys: settings.localStorageKeys,
+        trackedKeys: settings.trackedKeys,
       });
     } else if (migrated) {
       // Persist once so later loads skip this path. Older keys are left in place
       // so an earlier build keeps working if the user rolls back.
-      await this.storage.set({ groups: settings.groups });
+      await this.storage.set(migratedKeys);
     }
 
     return settings;

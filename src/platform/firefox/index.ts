@@ -180,6 +180,16 @@ const firefoxPlatform: PlatformAPI = {
     }
   },
 
+  removeLocalStorageValue: async (key) => {
+    // Both paths, for the same reason as the write above.
+    runInPage(`try { localStorage.removeItem(${JSON.stringify(key)}); } catch {}`);
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      // Nothing more to try.
+    }
+  },
+
   watchLocalStorage: (onChange) => {
     window.addEventListener('message', (event) => {
       if (!isOwnWindowMessage(event)) return;

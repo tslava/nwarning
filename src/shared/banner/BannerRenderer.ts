@@ -16,8 +16,10 @@ export interface BannerConfig {
   onSwitch: (target: SwitchTarget) => void;
   /** Hide the banner for this page view, without changing any setting. */
   onDismiss: () => void;
-  /** Flip a tracked localStorage flag between its on and off values. */
+  /** Flip a tracked localStorage flag, or assign it when it is not set. */
   onToggleKey: (key: string) => void;
+  /** Remove a tracked localStorage flag from the page. */
+  onUnsetKey: (key: string) => void;
 }
 
 export interface BannerElements {
@@ -155,75 +157,140 @@ export class BannerRenderer {
   }
 
   /**
-   * A chip is the switch for its flag, and nothing else. There is no remove
-   * control: the two values a flag flips between are the whole vocabulary the
-   * banner writes.
+   * A chip states one flag and offers the actions available on it, as words.
    *
-   * A key that has gone missing keeps the neutral look rather than taking the
-   * "off" green: the app is back on however it was built, which is not the same
+   * The chip's body used to be one big button, which read as a label and behaved
+   * as a switch: what a click would do was only in the tooltip, and with two
+   * possible outcomes — swap it, clear it — one click could not mean both. So the
+   * name and value are text, and `swap` / `unset` / `set <value>` are buttons.
+   *
+   * A key that is not set keeps the neutral look rather than taking the "off"
+   * green: the app is running on however it was built, which is not the same
    * statement as the flag being off, and the colours only speak about values.
    */
   private createChip(warning: Warning): HTMLElement {
     const chip = document.createElement('span');
     chip.className = 'tracked-flag';
     chip.classList.add(
-      warning.value === null ? 'is-removed' : warning.isWarning ? 'is-enabled' : 'is-disabled',
+      warning.value === null ? 'is-unset' : warning.isWarning ? 'is-enabled' : 'is-disabled',
     );
 
-    chip.appendChild(this.createToggleButton(warning));
-    return chip;
-  }
+    // Split in two, because only the name may be ellipsised when a chip runs out
+    // of room. With one element a long key name swallowed the state — a chip read
+    // "nwave-production-enabl…" and said nothing about the flag at all.
+    const name = document.createElement('span');
+    name.className = 'tracked-flag-text';
+    name.textContent = warning.key;
 
-  /**
-   * Clicking the chip flips the flag and opens this page again in a new tab, which
-   * is the pair of actions that actually gets you anywhere: the app read the flag
-   * at startup, so a fresh load is what applies it. This tab is left alone on
-   * purpose, so the two are there to compare.
-   *
-   * A value that is not a plain on/off flag is not flipped: `staging`, `2` or a
-   * JSON blob is real configuration, one click must not overwrite it, and there is
-   * nothing to undo it from. Such a chip stays a focusable button that says so
-   * when clicked, rather than one that quietly ignores it — a control that
-   * silently does nothing is exactly how the copy button was reported as broken.
-   */
-  private createToggleButton(warning: Warning): HTMLButtonElement {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'tracked-flag-toggle';
+    const value = document.createElement('span');
+    value.className = 'tracked-flag-value';
+    value.textContent = warning.value === null ? '— not set' : `= ${warning.value}`;
 
-    const text = document.createElement('span');
-    text.className = 'tracked-flag-text';
-    text.textContent =
-      warning.value === null ? `${warning.key} — removed` : `${warning.key} = ${warning.value}`;
-    button.appendChild(text);
+    chip.append(name, value);
 
     // The value has been changed here, but the page read the old one at startup.
     if (warning.pendingReload) {
       const note = document.createElement('span');
       note.className = 'tracked-flag-note';
       note.textContent = 'reload to apply';
-      button.appendChild(note);
+      chip.appendChild(note);
     }
 
-    const state = warning.value === null ? `${warning.key} is gone` : text.textContent;
-    const action =
+    chip.appendChild(this.createFlagActions(warning));
+    return chip;
+  }
+
+  /**
+   * The actions on one flag.
+   *
+   * Every one of them writes and then opens this page in a new tab, which is the
+   * pair that actually gets you anywhere: the app read the flag at startup, so a
+   * fresh load is what applies a change. This tab is deliberately left alone, as
+   * the before to the new tab's after.
+   *
+   * A value that is not a plain on/off flag has nothing to swap with: `staging`,
+   * `2` or a JSON blob is real configuration and one click must not overwrite it.
+   * `swap` stays present and says so when pressed rather than vanishing — a
+   * control that silently does nothing is how the copy button was reported as
+   * broken — and `unset` is the way out of such a value, where the user is plainly
+   * asking for it to go.
+   */
+  private createFlagActions(warning: Warning): HTMLElement {
+    const actions = document.createElement('span');
+    actions.className = 'tracked-flag-actions';
+    const state =
+      warning.value === null ? `${warning.key} is not set` : `${warning.key} = ${warning.value}`;
+    const andOpen =
+      'and open this page in a new tab, where the app will read it — this tab keeps the value it started with';
+
+    if (warning.value === null) {
+      // Nothing to swap and nothing to clear: the one action is the assignment.
+      if (warning.nextValue !== null) {
+        actions.appendChild(
+          this.createFlagAction({
+            label: `set ${warning.nextValue}`,
+            state,
+            title: `Set ${warning.key} to ${warning.nextValue} ${andOpen}`,
+            onClick: () => this.config.onToggleKey(warning.key),
+          }),
+        );
+      }
+      return actions;
+    }
+
+    actions.appendChild(
       warning.nextValue === null
-        ? `${warning.key} is not 0/1, so clicking leaves it alone`
-        : `Set ${warning.key} to ${warning.nextValue} and open this page in a new tab, where the app will read it — this tab keeps the value it started with`;
+        ? this.createFlagAction({
+            label: 'swap',
+            state,
+            title: `${warning.key} is not 0/1 or true/false, so there is nothing to swap it for — unset is the way to clear it`,
+            locked: true,
+            onClick: () => this.showFlash(`${warning.key} is not 0/1 — left as it is`, 'warn'),
+          })
+        : this.createFlagAction({
+            label: 'swap',
+            state,
+            title: `Set ${warning.key} to ${warning.nextValue} ${andOpen}`,
+            onClick: () => this.config.onToggleKey(warning.key),
+          }),
+    );
 
-    button.title = action;
-    button.setAttribute('aria-label', `${state}. ${action}`);
+    actions.appendChild(
+      this.createFlagAction({
+        label: 'unset',
+        state,
+        title: `Remove ${warning.key} ${andOpen.replace('will read it', 'falls back to however it was built')} — localStorage keeps no history, so this cannot be undone`,
+        onClick: () => this.config.onUnsetKey(warning.key),
+      }),
+    );
 
-    if (warning.nextValue === null) {
+    return actions;
+  }
+
+  /**
+   * One action button. The label is a single word, which only means anything
+   * beside the value on the chip, so the accessible name carries both.
+   */
+  private createFlagAction(spec: {
+    label: string;
+    state: string;
+    title: string;
+    locked?: boolean;
+    onClick: () => void;
+  }): HTMLButtonElement {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'tracked-flag-action';
+    button.textContent = spec.label;
+    button.title = spec.title;
+    button.setAttribute('aria-label', `${spec.state}. ${spec.title}`);
+
+    if (spec.locked) {
       button.classList.add('is-locked');
       button.setAttribute('aria-disabled', 'true');
-      button.addEventListener('click', () =>
-        this.showFlash(`${warning.key} is not 0/1 — left as it is`, 'warn'),
-      );
-      return button;
     }
 
-    button.addEventListener('click', () => this.config.onToggleKey(warning.key));
+    button.addEventListener('click', spec.onClick);
     return button;
   }
 

@@ -10,7 +10,7 @@ const SETTINGS: Settings = {
   prodSize: 100,
   devSize: 30,
   bannerPosition: 'bottom',
-  localStorageKeys: ['use-prod-db'],
+  trackedKeys: [{ key: 'use-prod-db', hosts: ['dev.example.com'], value: '1' }],
 };
 
 describe('exportSettings', () => {
@@ -22,6 +22,8 @@ describe('exportSettings', () => {
       prodSize: 100,
       devSize: 30,
       bannerPosition: 'bottom',
+      trackedKeys: SETTINGS.trackedKeys,
+      // Names only, the shape 2.0 reads, so a file from here still imports there.
       localStorageKeys: ['use-prod-db'],
     });
   });
@@ -39,7 +41,7 @@ describe('exportSettings', () => {
         prodSize: 100,
         devSize: 30,
         bannerPosition: 'bottom',
-        localStorageKeys: ['use-prod-db'],
+        trackedKeys: SETTINGS.trackedKeys,
       });
       expect(result.skippedGroups).toBe(0);
     }
@@ -123,7 +125,12 @@ describe('importSettings', () => {
         groups: [{ production: 'a.com', development: ['dev.a.com'] }],
         prodSize: 100000,
         bannerPosition: 'sideways',
-        localStorageKeys: ['ok', '', 7],
+        trackedKeys: [
+          { key: 'ok', hosts: ['dev.a.com'], value: 'false' },
+          { key: '', hosts: [] },
+          7,
+          { key: 'coerced', hosts: [], value: 'staging' },
+        ],
       }),
     );
     expect(result.ok).toBe(true);
@@ -131,7 +138,44 @@ describe('importSettings', () => {
       expect(result.value.prodSize).toBe(200);
       expect(result.value.devSize).toBe(30);
       expect(result.value.bannerPosition).toBe('top');
-      expect(result.value.localStorageKeys).toEqual(['ok']);
+      expect(result.value.trackedKeys).toEqual([
+        { key: 'ok', hosts: ['dev.a.com'], value: 'false' },
+        // A value the banner could not write is coerced, not a reason to lose
+        // the key: the name is the part that took someone effort to find.
+        { key: 'coerced', hosts: [], value: '1' },
+      ]);
+    }
+  });
+
+  it('reads a payload from 2.0, where keys were names without hosts', () => {
+    const result = importSettings(
+      JSON.stringify({
+        groups: [{ production: 'a.com', development: ['dev.a.com'] }],
+        localStorageKeys: ['use-prod-db', '', 7],
+      }),
+    );
+    expect(result.ok).toBe(true);
+    // No hosts, which is what that list meant: every host the banner appears on.
+    if (result.ok) {
+      expect(result.value.trackedKeys).toEqual([{ key: 'use-prod-db', hosts: [], value: '1' }]);
+    }
+  });
+
+  it('rejects a key whose host is not a hostname pattern', () => {
+    const result = importSettings(
+      JSON.stringify({
+        groups: [{ production: 'a.com', development: ['dev.a.com'] }],
+        trackedKeys: [
+          { key: 'flag', hosts: ['not a host'] },
+          { key: 'kept', hosts: [] },
+        ],
+      }),
+    );
+    expect(result.ok).toBe(true);
+    // Dropped rather than imported unvalidated: an import may not introduce a
+    // configuration the form would have refused.
+    if (result.ok) {
+      expect(result.value.trackedKeys).toEqual([{ key: 'kept', hosts: [], value: '1' }]);
     }
   });
 });

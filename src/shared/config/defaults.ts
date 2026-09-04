@@ -15,5 +15,5 @@ export const DEFAULTS: Readonly<Settings> = Object.freeze({
   prodSize: 30,
   devSize: 30,
   bannerPosition: 'top',
-  localStorageKeys: [],
+  trackedKeys: [],
 });

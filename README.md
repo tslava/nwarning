@@ -144,7 +144,8 @@ unreadable.
    - Add environment groups: one production host plus its non-production hosts
    - Configure banner sizes for production and non-production
    - Set banner position (top or bottom)
-   - Configure localStorage keys to monitor
+   - Configure localStorage keys to monitor, the hosts each applies to, and the
+     value a click assigns when a key is not set
    - Export the configuration as JSON, or import one
 
 Saving takes effect immediately in every open tab — no page reload needed.
@@ -189,36 +190,63 @@ Visiting `app.production.example.com` and switching lands on
 ### Local Storage Monitoring
 
 Configure localStorage keys of the visited page to surface in the banner. Each
-present key becomes a coloured chip:
+key becomes a chip:
 
-| Chip              | Meaning                                          |
-| ----------------- | ------------------------------------------------ |
-| red, white text   | value is `1` or `true` — the flag is on          |
-| green, black text | any other value — the flag is off                |
-| nothing shown     | key absent, so the app uses its built-in default |
+| Chip              | Meaning                                       |
+| ----------------- | --------------------------------------------- |
+| red, white text   | value is `1` or `true` — the flag is on       |
+| green, black text | any other value — the flag is off             |
+| white, italic     | not set, so the app uses however it was built |
+
+Each chip names its flag and offers its actions as words: **swap** writes the other
+value, **unset** removes the key, and an unset flag offers **set `<value>`** with
+the value configured for it. Each of them writes and then opens the page in a new
+tab, where the app actually reads the flag.
+
+Every key row carries three things: the key name, the hosts it applies to, and the
+value a click writes when the key is not set.
+
+| Key name      | Hosts                      | Default Value to set |
+| ------------- | -------------------------- | -------------------- |
+| `use-prod-db` | `dev.example.com` (ticked) | `1`                  |
+
+Hosts are ticked from the environment groups above, split into production and
+non-production, rather than typed: a host that is in no group never shows a banner,
+so it could never show a chip either. **With no host ticked the key applies
+everywhere the banner appears**, which is what a key configured before this option
+existed does, so an update changes nothing about where your keys are watched. The
+same key can be listed twice with different hosts and values — `0` on production
+and `1` on a stand, say — and the first row matching the page wins.
+
+A key that is in scope but not set on the page gets the neutral chip above, whose
+**set** action assigns the configured value. The only assignable values are `0`,
+`1`, `true` and `false` — the two vocabularies **swap** works in — so an assignment
+can never produce a value the chip would then refuse to touch.
 
 The colours mean the same thing as the banner's own: red for production, green for
 everything else. So a **red chip on a green banner** is a development page pointed
 at production data, and a **green chip on a red banner** is the reverse — no
 comparison needed, the mismatch is the warning.
 
-**Clicking a chip flips its flag and opens the same page in a new tab.** Frontends
-read such flags once at startup, so the flip alone changes nothing in front of you —
-the new tab is where the app actually reads it. The tab you clicked from is left
-untouched, so the two are there to compare, and its chip says "reload to apply"
-until you reload it. Flip the flag back and that note goes away, because there is
+**Every action opens the same page in a new tab.** Frontends read such flags once at
+startup, so the write alone changes nothing in front of you — the new tab is where
+the app actually reads it. The tab you acted from is left untouched, so the two are
+there to compare, and its chip says "reload to apply" until you reload it. Put the
+flag back where the page found it and that note goes away, because there is
 genuinely nothing left to reload for.
 
 Two vocabularies are flipped, `1`/`0` and `true`/`false`, and the spelling is kept —
 `TRUE` becomes `FALSE`.
 
 A value that is not one of those — `staging`, `2`, a JSON blob — is **not**
-overwritten: it is real configuration, a click cannot be undone, and the chip says
-so instead of changing it. Clear such a value from devtools.
+overwritten by **swap**: it is real configuration, a write cannot be undone, and the
+chip says so instead of changing it. **unset** still works on it, since removing a
+value is what you would be asking for.
 
-Note that most such flags treat any non-empty value as an override, so `0` is not
-always the same as the app's built-in default; the banner writes only these two
-values and never removes a key.
+**unset** is there because `0` is not always the same as the app's built-in default:
+most such flags treat any non-empty value as an override, so "off" and "absent" are
+different states. It cannot be undone — localStorage keeps no history — so it is a
+named action rather than anything a stray click can reach.
 
 Nothing about any particular key is built in — configure whichever keys your apps
 use.
@@ -233,8 +261,10 @@ use.
 
 - **Red banner / red `P` badge**: production
 - **Green banner / green `D` badge**: a non-production stand
-- **Warning chips**: monitored localStorage values, highlighted when switched on;
-  click one to flip it and open the page again in a new tab, where the app reads it
+- **Warning chips**: monitored localStorage values, highlighted when switched on,
+  each with `swap` and `unset` beside it; a key in scope for the host but not set
+  shows a neutral chip offering to set it. Every one of them opens the page again in
+  a new tab, where the app reads the flag
 - **Copy button**: copies the current URL's parameters — from the query string, or
   from the hash when the page keeps its filter state there — and says what happened,
   including when there are no parameters to copy
