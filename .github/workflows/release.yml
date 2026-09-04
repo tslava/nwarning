@@ -11,9 +11,9 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -48,8 +48,10 @@ jobs:
           npm run package:firefox
 
       # The exact bytes the store jobs will submit, so nothing is rebuilt after
-      # approval.
-      - uses: actions/upload-artifact@v4
+      # approval. This action and the download-artifact below have to move
+      # together: the publish job reads back what this one wrote, and the two
+      # halves are only guaranteed to agree within a matching release pair.
+      - uses: actions/upload-artifact@v7
         with:
           name: release-${{ github.ref_name }}
           path: dist
@@ -76,16 +78,16 @@ jobs:
     # have no rollback, only a higher version, so submission is a decision.
     environment: stores
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
 
       - run: npm ci
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: release-${{ github.ref_name }}
           path: dist
