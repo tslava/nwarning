@@ -1,6 +1,12 @@
-# Environment Warning Browser Extension
+# Environment Switcher (nwarning)
 
-A browser extension that helps developers easily switch between production and development environments while providing clear visual indicators of the current environment.
+**Never mistake production for staging again.** A browser extension that puts a red banner on production and a green one on every other stand, and switches between hosts of the same app in one click, keeping the path and query.
+
+![A production page with the red Environment Switcher banner and its Switch to… button](store/screenshot-1-production.png)
+
+**Install:** [Firefox Add-ons](https://addons.mozilla.org/firefox/addon/envswitcher/) · [Chrome Web Store](https://chromewebstore.google.com/detail/environment-switcher/knkckkpfjhmcekcekbfjijgikdkcblmd)
+
+**Stack:** TypeScript · Manifest V3 (Chrome and Firefox) · Vitest · GitHub Actions (CI and store release)
 
 ## Features
 
@@ -355,3 +361,7 @@ Run `npm run check` before opening one.
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
+
+---
+
+Built by [Wiaczeslaw Cyunczyk](https://cyunczyk.dev)
