@@ -364,4 +364,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ---
 
-Built by [Wiaczeslaw Cyunczyk](https://cyunczyk.dev)
+Built by [Wiaczeslaw Cyunczyk](https://tslava.dev)
